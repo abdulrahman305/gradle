@@ -17,7 +17,6 @@
 package org.gradle.internal.service.scopes;
 
 import org.gradle.StartParameter;
-import org.gradle.api.Project;
 import org.gradle.api.flow.FlowScope;
 import org.gradle.api.internal.BuildDefinition;
 import org.gradle.api.internal.ClassPathRegistry;
@@ -29,9 +28,6 @@ import org.gradle.api.internal.ExternalProcessStartedListener;
 import org.gradle.api.internal.FeaturePreviews;
 import org.gradle.api.internal.GradleInternal;
 import org.gradle.api.internal.StartParameterInternal;
-import org.gradle.api.internal.artifacts.DefaultModule;
-import org.gradle.api.internal.artifacts.Module;
-import org.gradle.api.internal.artifacts.configurations.DependencyMetaDataProvider;
 import org.gradle.api.internal.classpath.ModuleRegistry;
 import org.gradle.api.internal.classpath.PluginModuleRegistry;
 import org.gradle.api.internal.collections.DomainObjectCollectionFactory;
@@ -43,9 +39,12 @@ import org.gradle.api.internal.file.DefaultFileSystemOperations;
 import org.gradle.api.internal.file.FileCollectionFactory;
 import org.gradle.api.internal.file.FileResolver;
 import org.gradle.api.internal.file.temp.TemporaryFileProvider;
+import org.gradle.api.internal.initialization.ActionBasedModelDefaultsHandler;
 import org.gradle.api.internal.initialization.BuildLogicBuildQueue;
 import org.gradle.api.internal.initialization.BuildLogicBuilder;
+import org.gradle.api.initialization.SharedModelDefaults;
 import org.gradle.api.internal.initialization.DefaultBuildLogicBuilder;
+import org.gradle.api.internal.initialization.DefaultSharedModelDefaults;
 import org.gradle.api.internal.initialization.DefaultScriptClassPathResolver;
 import org.gradle.api.internal.initialization.DefaultScriptHandlerFactory;
 import org.gradle.api.internal.initialization.ScriptClassPathResolver;
@@ -216,6 +215,9 @@ import org.gradle.internal.service.ServiceRegistry;
 import org.gradle.internal.snapshot.CaseSensitivity;
 import org.gradle.model.internal.inspect.ModelRuleSourceDetector;
 import org.gradle.plugin.management.internal.autoapply.AutoAppliedPluginHandler;
+import org.gradle.plugin.software.internal.PluginScheme;
+import org.gradle.plugin.software.internal.ModelDefaultsHandler;
+import org.gradle.plugin.software.internal.SoftwareTypeRegistry;
 import org.gradle.plugin.use.internal.PluginRequestApplicator;
 import org.gradle.process.internal.DefaultExecOperations;
 import org.gradle.process.internal.DefaultExecSpecFactory;
@@ -684,11 +686,6 @@ public class BuildScopeServices implements ServiceRegistrationProvider {
     }
 
     @Provides
-    protected DependencyMetaDataProvider createDependencyMetaDataProvider() {
-        return new DependencyMetaDataProviderImpl();
-    }
-
-    @Provides
     protected ComponentTypeRegistry createComponentTypeRegistry() {
         return new DefaultComponentTypeRegistry();
     }
@@ -696,13 +693,6 @@ public class BuildScopeServices implements ServiceRegistrationProvider {
     @Provides
     protected PluginInspector createPluginInspector(ModelRuleSourceDetector modelRuleSourceDetector) {
         return new PluginInspector(modelRuleSourceDetector);
-    }
-
-    private static class DependencyMetaDataProviderImpl implements DependencyMetaDataProvider {
-        @Override
-        public Module getModule() {
-            return new DefaultModule("unspecified", "unspecified", Project.DEFAULT_VERSION, Project.DEFAULT_STATUS);
-        }
     }
 
     @Provides
@@ -796,5 +786,15 @@ public class BuildScopeServices implements ServiceRegistrationProvider {
                 ? new BuildServiceProviderNagger(services.get(WorkExecutionTracker.class))
                 : BuildServiceProvider.Listener.EMPTY
         );
+    }
+
+    @Provides
+    protected SharedModelDefaults createSharedModelDefaults(Instantiator instantiator, SoftwareTypeRegistry softwareTypeRegistry) {
+        return instantiator.newInstance(DefaultSharedModelDefaults.class, softwareTypeRegistry);
+    }
+
+    @Provides
+    protected ModelDefaultsHandler createActionDefaultsHandler(SoftwareTypeRegistry softwareTypeRegistry, PluginScheme pluginScheme) {
+        return new ActionBasedModelDefaultsHandler(softwareTypeRegistry, pluginScheme.getInspectionScheme());
     }
 }
