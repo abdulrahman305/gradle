@@ -17,7 +17,8 @@
 package org.gradle.internal.watch
 
 import com.google.common.collect.ImmutableSet
-import com.gradle.develocity.testing.annotations.LocalOnly
+import org.gradle.test.fixtures.Flaky
+import org.gradle.testdistribution.LocalOnly
 import org.apache.commons.io.FileUtils
 import org.gradle.cache.GlobalCacheLocations
 import org.gradle.integtests.fixtures.executer.GradleContextualExecuter
@@ -33,6 +34,7 @@ import org.junit.Rule
 import spock.lang.Issue
 
 @LocalOnly
+@Flaky(because = "https://github.com/gradle/gradle-private/issues/4642")
 class WatchedDirectoriesFileSystemWatchingIntegrationTest extends AbstractFileSystemWatchingIntegrationTest {
     @Rule
     public final RepositoryHttpServer server = new RepositoryHttpServer(temporaryFolder)
@@ -247,7 +249,7 @@ class WatchedDirectoriesFileSystemWatchingIntegrationTest extends AbstractFileSy
         def projectDir = file("project")
         projectDir.file("build.gradle") << """
             configurations { implementation }
-            repositories { ${repositoryType} { url "${repo.uri}" } }
+            repositories { ${repositoryType} { url = "${repo.uri}" } }
             dependencies { implementation 'group:projectA:9.1' }
 
             task retrieve(type: Sync) {
@@ -282,7 +284,7 @@ class WatchedDirectoriesFileSystemWatchingIntegrationTest extends AbstractFileSy
 
         projectDir.file("build.gradle") << """
             repositories {
-                maven { url "${mavenHttpRepository.uri}" }
+                maven { url = "${mavenHttpRepository.uri}" }
             }
             configurations { compile }
             dependencies {

@@ -63,9 +63,9 @@ import org.gradle.internal.instrumentation.api.annotations.ToBeReplacedByLazyPro
  * For any other tweaks to the publication, it is possible to modify the generated Ivy descriptor file prior to publication. This is done using
  * the {@link IvyModuleDescriptorSpec#withXml(org.gradle.api.Action)} method, normally via a Closure passed to the {@link #descriptor(org.gradle.api.Action)} method.
  * </p>
- * <h4>Example of publishing a java component with an added source jar and custom module description</h4>
  *
  * <pre class='autoTested'>
+ * // Example of publishing a java component with an added source jar and custom module description
  * plugins {
  *     id 'java'
  *     id 'ivy-publish'
@@ -80,9 +80,9 @@ import org.gradle.internal.instrumentation.api.annotations.ToBeReplacedByLazyPro
  *     myPublication(IvyPublication) {
  *       from components.java
  *       artifact(sourceJar) {
- *         type "source"
- *         extension "src.jar"
- *         conf "runtime"
+ *         type = "source"
+ *         extension = "src.jar"
+ *         conf = "runtime"
  *       }
  *       descriptor {
  *         license {
@@ -107,7 +107,6 @@ public interface IvyPublication extends Publication {
 
     /**
      * The module descriptor that will be published.
-     * <p>
      *
      * @return The module descriptor that will be published.
      */
@@ -259,13 +258,13 @@ public interface IvyPublication extends Publication {
      *     ivy(IvyPublication) {
      *       artifact(sourceJar) {
      *         // These values will be used instead of the values from the task. The task values will not be updated.
-     *         classifier "src"
-     *         extension "zip"
-     *         conf "runtime-&gt;default"
+     *         classifier = "src"
+     *         extension = "zip"
+     *         conf = "runtime-&gt;default"
      *       }
      *       artifact("my-docs-file.htm") {
-     *         type "documentation"
-     *         extension "html"
+     *         type = "documentation"
+     *         extension = "html"
      *         builtBy genDocs
      *       }
      *     }

@@ -23,8 +23,8 @@ import org.gradle.internal.scopeids.id.BuildInvocationScopeId;
 import org.gradle.internal.service.scopes.Scope;
 import org.gradle.internal.service.scopes.ServiceScope;
 import org.gradle.util.Path;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.function.Consumer;
 
@@ -79,9 +79,14 @@ public interface BuildStateRegistry {
     void finalizeIncludedBuilds();
 
     /**
+     * Notifies the registry about root build inclusion.
+     */
+    default void onRootBuildInclude(RootBuildState rootBuild, BuildState referrer, boolean asPluginBuild) {}
+
+    /**
      * Creates an included build. An included build is-a nested build whose projects and outputs are treated as part of the composite build.
      */
-    IncludedBuildState addIncludedBuild(BuildDefinition buildDefinition);
+    IncludedBuildState addIncludedBuild(BuildDefinition buildDefinition, BuildState referrer);
 
     /**
      * Creates an included build. An included build is-a nested build whose projects and outputs are treated as part of the composite build.

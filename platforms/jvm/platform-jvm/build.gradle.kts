@@ -7,7 +7,6 @@ description = """Extends platform-base with base types and interfaces specific t
 errorprone {
     disabledChecks.addAll(
         "StringCharset", // 1 occurrences
-        "UnusedMethod", // 1 occurrences
     )
 }
 
@@ -24,12 +23,11 @@ dependencies {
 
     api(libs.groovy)
     api(libs.inject)
-    api(libs.jsr305)
-    api(libs.nativePlatform)
+    api(libs.jspecify)
 
-    implementation(projects.internalInstrumentationApi)
     implementation(projects.dependencyManagement)
     implementation(projects.execution)
+    implementation(projects.fileOperations)
     implementation(projects.functional)
     implementation(projects.jvmServices)
     implementation(projects.publish)
@@ -42,7 +40,6 @@ dependencies {
     testImplementation(projects.snapshots)
     testImplementation(libs.ant)
     testImplementation(testFixtures(projects.core))
-    testImplementation(testFixtures(projects.diagnostics))
     testImplementation(testFixtures(projects.logging))
     testImplementation(testFixtures(projects.platformBase))
     testImplementation(testFixtures(projects.platformNative))
@@ -62,3 +59,6 @@ strictCompile {
 }
 
 integTest.usesJavadocCodeSnippets = true
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

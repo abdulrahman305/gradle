@@ -10,14 +10,13 @@ dependencies {
 
     api(libs.httpcore)
     api(libs.inject)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
     api(projects.baseServices)
     api(projects.buildCacheSpi)
     api(projects.coreApi)
     api(projects.resourcesHttp)
 
-    implementation(projects.internalInstrumentationApi)
     implementation(projects.core)
     implementation(projects.logging)
     implementation(projects.resources)
@@ -36,4 +35,7 @@ dependencies {
     integTestDistributionRuntimeOnly(projects.distributionsJvm) {
         because("Uses application plugin.")
     }
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

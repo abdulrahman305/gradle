@@ -15,30 +15,32 @@ errorprone {
         "ImmutableEnumChecker", // 2 occurrences
         "InconsistentCapitalization", // 1 occurrences
         "ReferenceEquality", // 1 occurrences
-        "StringCaseLocaleUsage", // 5 occurrences
         "UnusedMethod", // 1 occurrences
     )
 }
 
 dependencies {
     api(libs.inject)
-    api(libs.jsr305)
+    api(libs.jspecify)
     api(libs.maven3Settings)
 
-    api(projects.stdlibJavaExtensions)
-    api(projects.serviceProvider)
     api(projects.baseServices)
+    api(projects.buildInitSpecs)
     api(projects.core)
     api(projects.coreApi)
+    api(projects.daemonServerWorker)
+    api(projects.daemonServices)
     api(projects.dependencyManagement)
     api(projects.fileCollections)
     api(projects.logging)
     api(projects.platformJvm)
-    api(projects.toolchainsJvmShared)
+    api(projects.serviceProvider)
+    api(projects.stdlibJavaExtensions)
+    api(projects.jvmServices)
     api(projects.workers)
-    api(projects.daemonServices)
 
-    implementation(projects.internalInstrumentationApi)
+    implementation(projects.buildInitSpecsApi)
+    implementation(projects.fileOperations)
     implementation(projects.loggingApi)
     implementation(projects.platformNative)
     implementation(projects.pluginsApplication) {
@@ -77,17 +79,6 @@ dependencies {
 
     compileOnly(projects.platformBase)
 
-    testRuntimeOnly(libs.maven3Compat)
-    testRuntimeOnly(libs.maven3PluginApi)
-
-    testImplementation(projects.cli)
-    testImplementation(projects.baseServicesGroovy)
-    testImplementation(projects.native)
-    testImplementation(projects.snapshots)
-    testImplementation(projects.processServices)
-    testImplementation(testFixtures(projects.core))
-    testImplementation(testFixtures(projects.platformNative))
-
     testFixturesImplementation(projects.baseServices)
     testFixturesImplementation(projects.platformBase)
     testFixturesImplementation(projects.coreApi)
@@ -97,14 +88,27 @@ dependencies {
     testFixturesImplementation(projects.testSuitesBase)
     testFixturesImplementation(projects.pluginsJvmTestSuite)
 
+
+    testImplementation(projects.cli)
+    testImplementation(projects.baseServicesGroovy)
+    testImplementation(projects.native)
+    testImplementation(projects.snapshots)
+    testImplementation(projects.processServices)
+    testImplementation(testFixtures(projects.core))
+    testImplementation(testFixtures(projects.platformNative))
+
+    testRuntimeOnly(libs.maven3Compat)
+    testRuntimeOnly(libs.maven3PluginApi)
+
+    testRuntimeOnly(projects.distributionsFull) {
+        because("ProjectBuilder tests load services from a Gradle distribution.  Toolchain usage requires JVM distribution.")
+    }
+
     integTestImplementation(projects.native)
     integTestImplementation(libs.jetty)
 
     integTestRuntimeOnly(libs.maven3Compat)
 
-    testRuntimeOnly(projects.distributionsJvm) {
-        because("ProjectBuilder tests load services from a Gradle distribution.  Toolchain usage requires JVM distribution.")
-    }
     integTestDistributionRuntimeOnly(projects.distributionsFull)
 }
 
@@ -113,7 +117,3 @@ packageCycles {
 }
 
 integTest.testJvmXmx = "1g"
-
-tasks.isolatedProjectsIntegTest {
-    enabled = true
-}

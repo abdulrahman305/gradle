@@ -40,7 +40,7 @@ class ParallelDownloadsIntegrationTest extends AbstractHttpDependencyResolutionT
         buildFile << """
             repositories {
                 maven {
-                    url = uri('$blockingServer.uri')
+                    url = '$blockingServer.uri'
                     $authConfig
                 }
             }
@@ -73,21 +73,17 @@ class ParallelDownloadsIntegrationTest extends AbstractHttpDependencyResolutionT
             blockingServer.get(m4.artifact.path).sendFile(m4.artifact.file))
 
         expect:
-        if (expression == "configurations.compile.fileCollection { true }") {
-            executer.expectDocumentedDeprecationWarning("The Configuration.fileCollection(Closure) method has been deprecated. This is scheduled to be removed in Gradle 9.0. Use Configuration.getIncoming().artifactView(Action) with a componentFilter instead. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#deprecate_filtered_configuration_file_and_filecollection_methods")
-        } else if (expression == "configurations.compile.resolvedConfiguration.getFiles { true }") {
-            executer.expectDocumentedDeprecationWarning("The ResolvedConfiguration.getFiles(Spec) method has been deprecated. This is scheduled to be removed in Gradle 9.0. Use an ArtifactView with a componentFilter instead. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#deprecate_filtered_configuration_file_and_filecollection_methods")
-        }
         executer.withArguments('--max-workers', '4')
         succeeds("resolve")
 
         where:
-        expression                                                       | _
-        "configurations.compile"                                         | _
-        "configurations.compile.fileCollection { true }"                 | _
-        "configurations.compile.incoming.files"                          | _
-        "configurations.compile.incoming.artifacts.artifactFiles"        | _
-        "configurations.compile.resolvedConfiguration.getFiles { true }" | _
+        expression                                                                          | _
+        "configurations.compile"                                                            | _
+        "configurations.compile.files"                                                      | _
+        "configurations.compile.incoming.files"                                             | _
+        "configurations.compile.incoming.artifacts.artifactFiles"                           | _
+        "configurations.compile.incoming.artifactView {}.files"                             | _
+        "configurations.compile.incoming.artifactView { componentFilter { true } }.files"   | _
     }
 
     def "downloads artifacts in parallel from an Ivy repo"() {
@@ -99,7 +95,7 @@ class ParallelDownloadsIntegrationTest extends AbstractHttpDependencyResolutionT
         buildFile << """
             repositories {
                 ivy {
-                    url = uri('$blockingServer.uri')
+                    url = '$blockingServer.uri'
                     $authConfig
                 }
             }
@@ -145,7 +141,7 @@ class ParallelDownloadsIntegrationTest extends AbstractHttpDependencyResolutionT
         buildFile << """
             repositories {
                 maven {
-                    url = uri('$blockingServer.uri')
+                    url = '$blockingServer.uri'
                     $authConfig
                 }
             }
@@ -205,7 +201,7 @@ class ParallelDownloadsIntegrationTest extends AbstractHttpDependencyResolutionT
         buildFile << """
             repositories {
                 ivy {
-                    url = uri('$blockingServer.uri')
+                    url = '$blockingServer.uri'
                     $authConfig
                 }
             }
@@ -284,7 +280,7 @@ class ParallelDownloadsIntegrationTest extends AbstractHttpDependencyResolutionT
         buildFile << """
             repositories {
                 maven {
-                    url = uri('$blockingServer.uri')
+                    url = '$blockingServer.uri'
                     $authConfig
                 }
             }

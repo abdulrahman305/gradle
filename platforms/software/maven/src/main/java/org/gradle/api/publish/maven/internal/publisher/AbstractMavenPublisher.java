@@ -20,7 +20,6 @@ import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.apache.maven.artifact.repository.metadata.Versioning;
 import org.apache.maven.artifact.repository.metadata.io.xpp3.MetadataXpp3Reader;
 import org.apache.maven.artifact.repository.metadata.io.xpp3.MetadataXpp3Writer;
-import org.gradle.api.NonNullApi;
 import org.gradle.api.UncheckedIOException;
 import org.gradle.api.internal.artifacts.repositories.resolver.ExternalResourceResolver;
 import org.gradle.api.internal.artifacts.repositories.transport.NetworkOperationBackOffAndRetry;
@@ -37,10 +36,11 @@ import org.gradle.internal.resource.ReadableContent;
 import org.gradle.internal.resource.local.ByteArrayReadableContent;
 import org.gradle.internal.resource.local.FileReadableContent;
 import org.gradle.internal.xml.XmlTransformer;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -49,7 +49,7 @@ import java.util.Locale;
 import java.util.concurrent.Callable;
 import java.util.regex.Pattern;
 
-@NonNullApi
+@NullMarked
 abstract class AbstractMavenPublisher implements MavenPublisher {
     private static final Logger LOGGER = LoggerFactory.getLogger(MavenPublisher.class);
 
@@ -70,7 +70,7 @@ abstract class AbstractMavenPublisher implements MavenPublisher {
         String version = publication.getVersion();
 
         ModuleArtifactPublisher artifactPublisher = new ModuleArtifactPublisher(repository, localRepo, rootUri, groupId, artifactId, version);
-        SnapshotMetadataResult snapshotMetadataResult = computeSnapshotMetadata(publication, repository, localRepo, version, artifactPublisher, groupId, artifactId);
+        SnapshotMetadataResult snapshotMetadataResult = computeSnapshotMetadata(publication, repository, version, artifactPublisher, groupId, artifactId);
 
         if (snapshotMetadataResult != null && !localRepo) {
             // Use the timestamped version for all published artifacts
@@ -83,7 +83,7 @@ abstract class AbstractMavenPublisher implements MavenPublisher {
     }
 
     @Nullable
-    private SnapshotMetadataResult computeSnapshotMetadata(MavenNormalizedPublication publication, ExternalResourceRepository repository, boolean localRepo, String version, ModuleArtifactPublisher artifactPublisher, String groupId, String artifactId) {
+    private SnapshotMetadataResult computeSnapshotMetadata(MavenNormalizedPublication publication, ExternalResourceRepository repository, String version, ModuleArtifactPublisher artifactPublisher, String groupId, String artifactId) {
         if (isSnapshot(version)) {
             ExternalResourceName snapshotMetadataPath = artifactPublisher.getSnapshotMetadataLocation();
             Metadata snapshotMetadata = createSnapshotMetadata(publication, groupId, artifactId, version, repository, snapshotMetadataPath);
@@ -192,7 +192,7 @@ abstract class AbstractMavenPublisher implements MavenPublisher {
 
     protected abstract Metadata createSnapshotMetadata(MavenNormalizedPublication publication, String groupId, String artifactId, String version, ExternalResourceRepository repository, ExternalResourceName metadataResource);
 
-    @NonNullApi
+    @NullMarked
     private static class SnapshotMetadataResult {
         public final ExternalResourceName snapshotMetadataPath;
         public final Metadata snapshotMetadata;

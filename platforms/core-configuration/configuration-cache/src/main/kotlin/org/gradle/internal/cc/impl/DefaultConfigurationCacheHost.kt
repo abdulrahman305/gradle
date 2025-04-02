@@ -22,6 +22,7 @@ import org.gradle.api.internal.GradleInternal
 import org.gradle.api.internal.SettingsInternal
 import org.gradle.api.internal.initialization.ClassLoaderScope
 import org.gradle.api.internal.initialization.ScriptHandlerFactory
+import org.gradle.api.internal.initialization.StandaloneDomainObjectContext
 import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.api.internal.project.ProjectStateRegistry
 import org.gradle.execution.plan.ScheduledWork
@@ -64,10 +65,10 @@ class DefaultConfigurationCacheHost internal constructor(
     override fun createBuild(settingsFile: File?): ConfigurationCacheBuild =
         DefaultConfigurationCacheBuild(gradle.owner, service(), service(), settingsFile)
 
-    override fun <T> service(serviceType: Class<T>): T =
+    override fun <T : Any> service(serviceType: Class<T>): T =
         gradle.services.get(serviceType)
 
-    override fun <T> factory(serviceType: Class<T>): Factory<T> =
+    override fun <T : Any> factory(serviceType: Class<T>): Factory<T> =
         gradle.services.getFactory(serviceType)
 
     private
@@ -164,9 +165,6 @@ class DefaultConfigurationCacheHost internal constructor(
             return project
         }
 
-        override fun getProject(path: String): ProjectInternal =
-            state.projects.getProject(Path.path(path)).mutableModel
-
         override fun addIncludedBuild(buildDefinition: BuildDefinition, settingsFile: File?, buildPath: Path): ConfigurationCacheBuild {
             return DefaultConfigurationCacheBuild(buildStateRegistry.addIncludedBuild(buildDefinition, buildPath), fileResolver, buildStateRegistry, settingsFile)
         }
@@ -193,7 +191,7 @@ class DefaultConfigurationCacheHost internal constructor(
                 gradle,
                 classLoaderScope,
                 baseClassLoaderScope,
-                service<ScriptHandlerFactory>().create(settingsSource, classLoaderScope),
+                service<ScriptHandlerFactory>().create(settingsSource, classLoaderScope, StandaloneDomainObjectContext.forScript(settingsSource)),
                 settingsDir(),
                 settingsSource,
                 gradle.startParameter

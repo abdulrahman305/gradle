@@ -6,13 +6,6 @@ description = "Provides plugins for configuring miscellaneous things (repositori
 
 group = "gradlebuild"
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(11)
-        vendor = JvmVendorSpec.ADOPTIUM
-    }
-}
-
 dependencies {
     api("gradlebuild:build-environment")
     api(platform(projects.buildPlatform))
@@ -35,4 +28,8 @@ dependencies {
     }
 
     testImplementation("org.junit.jupiter:junit-jupiter-engine:5.8.2")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

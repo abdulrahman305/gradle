@@ -17,8 +17,8 @@ package org.gradle.api.initialization;
 
 import org.gradle.declarative.dsl.model.annotations.Restricted;
 import org.gradle.internal.instrumentation.api.annotations.NotToBeMigratedToLazy;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.io.File;
 import java.util.Set;
 
@@ -45,7 +45,6 @@ public interface ProjectDescriptor {
      *
      * @param name The new name for the project. Should not be null
      */
-    @Restricted
     void setName(String name);
 
     /**

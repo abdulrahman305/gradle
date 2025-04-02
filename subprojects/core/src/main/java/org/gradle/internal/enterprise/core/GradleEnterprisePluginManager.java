@@ -23,11 +23,10 @@ import org.gradle.api.internal.GradleInternal;
 import org.gradle.internal.InternalBuildAdapter;
 import org.gradle.internal.service.scopes.Scope;
 import org.gradle.internal.service.scopes.ServiceScope;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 @ServiceScope(Scope.BuildTree.class)
 public class GradleEnterprisePluginManager {
@@ -81,7 +80,6 @@ public class GradleEnterprisePluginManager {
      * This should never happen due to the auto apply behavior.
      * It's only here as a kind of safeguard or fallback.
      */
-    @SuppressWarnings("deprecation")
     public void registerMissingPluginWarning(GradleInternal gradle) {
         if (gradle.isRootBuild()) {
             StartParameter startParameter = gradle.getStartParameter();
@@ -89,7 +87,7 @@ public class GradleEnterprisePluginManager {
             if (requested) {
                 gradle.addListener(new InternalBuildAdapter() {
                     @Override
-                    public void settingsEvaluated(@Nonnull Settings settings) {
+                    public void settingsEvaluated(@NonNull Settings settings) {
                         if (!isPresent() && !unsupported) {
                             LOGGER.warn(NO_SCAN_PLUGIN_MSG);
                         }

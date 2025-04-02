@@ -19,6 +19,9 @@ package org.gradle.internal.declarativedsl.settings
 
 import org.gradle.integtests.fixtures.AbstractIntegrationSpec
 
+import static org.hamcrest.CoreMatchers.allOf
+import static org.hamcrest.CoreMatchers.containsString
+
 class DeclarativeDslProjectSettingsIntegrationSpec extends AbstractIntegrationSpec {
 
     def "can interpret the settings file with the declarative DSL"() {
@@ -214,7 +217,30 @@ class DeclarativeDslProjectSettingsIntegrationSpec extends AbstractIntegrationSp
         def failure = fails(":projects")
 
         then:
-        failure.assertHasErrorOutput('2:1: Value reassigned in (this:(top-level-object)).rootProject.name := "bar"')
-        failure.assertHasErrorOutput('3:1: Value reassigned in (this:(top-level-object)).rootProject.name := "baz"')
+        failure.assertHasErrorOutput('2:1: reassigned value in \'rootProject.name = "bar"\'')
+        failure.assertHasErrorOutput('3:1: reassigned value in \'rootProject.name = "baz"\'')
+    }
+
+    def "resolution failures are reported nicely"() {
+        given:
+        file("settings.gradle.dcl") << """
+            rootProject.name = "test-value"
+
+            dependencyResolutionManagement {
+                repositoriesMode = RepositoriesMode.PREFER_PROJECT
+            }
+        """
+        buildFile << "println('name = ' + rootProject.name)"
+
+        expect:
+        def result = runAndFail(":help")
+        result.assertThatAllDescriptions(allOf(
+            containsString("Failures in resolution:\n" +
+                "    5:36: unresolved reference 'RepositoriesMode'\n" +
+                "    5:53: unresolved reference 'PREFER_PROJECT'\n" +
+                "    5:17: unresolved assigned value"),
+            containsString("Failures in document checks:\n" +
+                "    5:17: unsupported syntax (NamedReferenceWithExplicitReceiver)")
+        ))
     }
 }

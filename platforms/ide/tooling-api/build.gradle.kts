@@ -6,7 +6,11 @@ plugins {
 
 description = "Gradle Tooling API - the programmatic API to invoke Gradle"
 
-gradlebuildJava.usedInToolingApi()
+gradlebuildJava {
+    usedInToolingApi()
+    // JSpecify annotations on static inner type return types
+    usesJdkInternals = true
+}
 
 tasks.named<Jar>("sourcesJar") {
     // duplicate package-info.java because of split packages
@@ -25,7 +29,6 @@ errorprone {
         "EqualsUnsafeCast", // 1 occurrences
         "FutureReturnValueIgnored", // 1 occurrences
         "LockNotBeforeTry", // 1 occurrences
-        "StringCaseLocaleUsage", // 1 occurrences
         "ThreadLocalUsage", // 2 occurrences
     )
 }
@@ -34,23 +37,27 @@ dependencies {
     shadedImplementation(libs.slf4jApi)
 
     runtimeOnly(projects.coreApi)
+
     implementation(projects.core)
     implementation(projects.buildProcessServices)
     implementation(projects.serviceProvider)
     implementation(projects.serviceRegistryBuilder)
 
     implementation(libs.guava)
+    implementation(libs.jsr305)
 
-    api(libs.jsr305)
     api(projects.baseServices)
     api(projects.buildOperations)
+    api(projects.classloaders)
     api(projects.concurrent)
     api(projects.enterpriseLogging)
-    api(projects.stdlibJavaExtensions)
     api(projects.logging)
     api(projects.messaging)
+    api(projects.stdlibJavaExtensions)
     api(projects.time)
     api(projects.wrapperShared)
+
+    api(libs.jspecify)
 
     testFixturesImplementation(projects.coreApi)
     testFixturesImplementation(projects.core)
@@ -67,6 +74,7 @@ dependencies {
     integTestImplementation(projects.persistentCache)
 
     crossVersionTestImplementation(projects.jvmServices)
+    crossVersionTestImplementation(projects.problems)
     crossVersionTestImplementation(testFixtures(projects.problemsApi))
     crossVersionTestImplementation(libs.jettyWebApp)
     crossVersionTestImplementation(libs.commonsIo)
@@ -74,10 +82,13 @@ dependencies {
         because("BuildFinishedCrossVersionSpec classpath inference requires cglib enhancer")
     }
 
+    testImplementation(projects.buildEvents)
+
     testImplementation(testFixtures(projects.core))
     testImplementation(testFixtures(projects.logging))
     testImplementation(testFixtures(projects.dependencyManagement))
     testImplementation(testFixtures(projects.ide))
+    testImplementation(testFixtures(projects.time))
     testImplementation(testFixtures(projects.workers))
 
     integTestNormalizedDistribution(projects.distributionsFull) {
@@ -116,3 +127,6 @@ integTest.usesJavadocCodeSnippets = true
 testFilesCleanup.reportOnly = true
 
 apply(from = "buildship.gradle")
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

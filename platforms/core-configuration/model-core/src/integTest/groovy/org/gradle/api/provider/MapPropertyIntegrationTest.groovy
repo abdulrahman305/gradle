@@ -195,6 +195,46 @@ class MapPropertyIntegrationTest extends AbstractIntegrationSpec {
         failure.assertHasCause("The value for task ':thing' property 'prop' is final and cannot be changed any further.")
     }
 
+    def "UPGRADED task @Input property is LENIENTLY implicitly finalized when task starts execution UNTIL NEXT MAJOR"() {
+        given:
+        buildFile << '''
+            import org.gradle.internal.instrumentation.api.annotations.ReplacesEagerProperty
+
+            abstract class SomeTask extends DefaultTask {
+                @ReplacesEagerProperty
+                @Input
+                abstract MapProperty<String, String> getProp()
+
+                @OutputFile
+                final Property<RegularFile> outputFile = project.objects.fileProperty()
+
+                @TaskAction
+                void go() {
+                    println("value: " + prop.get().sort())
+                    outputFile.get().asFile.text = prop.get()
+                }
+            }
+
+            task thing(type: SomeTask) {
+                prop = ['key1': 'value1']
+                outputFile = layout.buildDirectory.file('out.txt')
+                doFirst {
+                    prop.put('key3', 'value3')
+                }
+            }
+
+            afterEvaluate {
+                thing.prop.putAll(['key2': 'value2'])
+            }
+
+            '''.stripIndent()
+
+        expect:
+        executer.expectDeprecationWarningWithPattern("Changing property value of task ':thing' property 'prop' at execution time. This behavior has been deprecated.*")
+        succeeds('thing')
+        outputContains("value: [key1:value1, key2:value2, key3:value3]")
+    }
+
     @Requires(value = IntegTestPreconditions.NotConfigCached, reason = "https://github.com/gradle/gradle/issues/25516")
     def "task ad hoc input property is implicitly finalized and changes ignored when task starts execution"() {
         given:
@@ -747,5 +787,52 @@ task thing {
 
         then:
         failureCauseContains("Circular evaluation detected")
+    }
+
+    def "#provider(isFinalized=#isFinalized) carries task dependencies"() {
+        buildFile """
+            def barTask = tasks.register("bar")
+            def barString = barTask.map { "bar" }
+
+            def bazTask = tasks.register("baz")
+            def bazString = bazTask.map { "baz" }
+
+            def map = objects.mapProperty(String, String)
+            map.put("42", barString)
+            map.put("1", bazString)
+
+            if ($isFinalized) {
+                map.finalizeValue()
+            }
+
+            abstract class FooTask extends DefaultTask {
+                @Input
+                abstract Property<String> getEntry()
+
+                @TaskAction
+                void run() {
+                    println("Entry is \${entry.get()}")
+                }
+            }
+
+            tasks.register("foo", FooTask) {
+                entry.set(map.$call)
+            }
+        """
+
+        when:
+        run "foo"
+
+        then:
+        outputContains(expectedOutput)
+        result.assertTasksExecuted(expectedTasks)
+
+        where:
+        provider          | call                                  | isFinalized | expectedTasks            | expectedOutput
+        "entry provider"  | 'getting("42")'                       | true        | [":foo"]                 | "Entry is bar"
+        // Ideally we want to evaluate dependencies in a fine-grained way
+        "entry provider"  | 'getting("42")'                       | false       | [":bar", ":baz", ":foo"] | "Entry is bar"
+        "keySet provider" | 'keySet().map { it.sort().join(",")}' | true        | [":foo"]                 | "Entry is 1,42"
+        "keySet provider" | 'keySet().map { it.sort().join(",")}' | false       | [":bar", ":baz", ":foo"] | "Entry is 1,42"
     }
 }

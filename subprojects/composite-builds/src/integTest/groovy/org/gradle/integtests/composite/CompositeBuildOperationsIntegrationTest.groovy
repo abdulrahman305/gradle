@@ -32,7 +32,6 @@ import org.gradle.operations.lifecycle.RunRequestedWorkBuildOperationType
 import org.gradle.test.precondition.Requires
 import org.gradle.test.preconditions.IntegTestPreconditions
 import org.junit.Assume
-import org.spockframework.lang.Wildcard
 
 import java.util.regex.Pattern
 
@@ -243,7 +242,7 @@ class CompositeBuildOperationsIntegrationTest extends AbstractCompositeBuildInte
         def treeTaskGraphOps = operations.all(CalculateTreeTaskGraphBuildOperationType)
         treeTaskGraphOps.size() == 2
         treeTaskGraphOps[0].displayName == "Calculate build tree task graph"
-        treeTaskGraphOps[0].parentId == applyRootProjectBuildScript.id
+        applyRootProjectBuildScript in operations.parentsOf(treeTaskGraphOps[0])
         treeTaskGraphOps[1].displayName == "Calculate build tree task graph"
         treeTaskGraphOps[1].parentId == root.id
 
@@ -322,7 +321,7 @@ class CompositeBuildOperationsIntegrationTest extends AbstractCompositeBuildInte
         def treeTaskGraphOps = operations.all(CalculateTreeTaskGraphBuildOperationType)
         treeTaskGraphOps.size() == 2
         treeTaskGraphOps[0].displayName == "Calculate build tree task graph"
-        treeTaskGraphOps[0].parentId == applyRootProjectBuildScript.id
+        applyRootProjectBuildScript in operations.parentsOf(treeTaskGraphOps[0])
         treeTaskGraphOps[1].displayName == "Calculate build tree task graph"
         treeTaskGraphOps[1].parentId == root.id
 
@@ -346,7 +345,7 @@ class CompositeBuildOperationsIntegrationTest extends AbstractCompositeBuildInte
         def runTasksOps = operations.all(Pattern.compile("Run tasks.*"))
         runTasksOps.size() == 3
         runTasksOps[0].displayName == "Run tasks (:buildB)"
-        runTasksOps[0].parentId == applyRootProjectBuildScript.id
+        applyRootProjectBuildScript in operations.parentsOf(runTasksOps[0])
         // Build operations are run in parallel, so can appear in either order
         [runTasksOps[1].displayName, runTasksOps[2].displayName].sort() == ["Run tasks", "Run tasks (:buildB)"]
         runTasksOps[1].parentId == runMainTasks.id
@@ -419,11 +418,6 @@ class CompositeBuildOperationsIntegrationTest extends AbstractCompositeBuildInte
         buildB.buildFile << registration("buildB")
 
         when:
-        if (!(deprecation instanceof Wildcard)) {
-            3.times {
-                executer.expectDocumentedDeprecationWarning("Listener registration using $deprecation has been deprecated. This will fail with an error in Gradle 9.0. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_7.html#task_execution_events")
-            }
-        }
         execute(buildA, ":jar")
 
         then:
@@ -435,9 +429,9 @@ class CompositeBuildOperationsIntegrationTest extends AbstractCompositeBuildInte
         buildFinished.progress.details.spans.text.flatten() ==~ ["buildA", "buildB", "buildC"].collect { "$message $it${getPlatformLineSeparator()}".toString() }
 
         where:
-        description     | registration                                                          | message               | deprecation
-        "buildFinished" | CompositeBuildOperationsIntegrationTest.&buildFinishedRegistrationFor | "buildFinished from"  | "Gradle.buildFinished()"
-        "flow actions"  | CompositeBuildOperationsIntegrationTest.&flowActionRegistrationFor    | "flowAction from"     | _
+        description     | registration                                                          | message
+        "buildFinished" | CompositeBuildOperationsIntegrationTest.&buildFinishedRegistrationFor | "buildFinished from"
+        "flow actions"  | CompositeBuildOperationsIntegrationTest.&flowActionRegistrationFor    | "flowAction from"
     }
 
     def "build tree finished operation happens even when configuration fails"() {

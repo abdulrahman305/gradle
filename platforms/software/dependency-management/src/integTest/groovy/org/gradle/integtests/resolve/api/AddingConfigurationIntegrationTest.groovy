@@ -89,23 +89,73 @@ class AddingConfigurationIntegrationTest extends AbstractIntegrationSpec {
         mavenRepo.module("org", "foo", "1.0").publish()
 
         buildFile << """
-            repositories {
-                maven { url '$mavenRepo.uri' }
-            }
+            ${mavenTestRepository()}
 
-            task resolve {
-                def conf = configurations.create("conf")
-                conf.dependencies.add(project.dependencies.create("org:foo:1.0"))
-                conf.files
-                configurations.remove(conf)
+            def conf = configurations.create("conf")
+            conf.dependencies.add(project.dependencies.create("org:foo:1.0"))
+            conf.files
+            configurations.remove(conf)
 
-                def conf2 = configurations.create("conf2")
-                conf2.dependencies.add(project.dependencies.create("org:foo:1.0"))
-                conf2.files
-            }
+            def conf2 = configurations.create("conf2")
+            conf2.dependencies.add(project.dependencies.create("org:foo:1.0"))
+            conf2.files
         """
 
         expect:
-        succeeds("resolve")
+        succeeds("help")
+    }
+
+    def "can remove and add configurations with no dependencies between resolutions"() {
+        given:
+        buildFile << """
+            def conf = configurations.create("conf")
+            assert conf.files.empty
+            configurations.remove(conf)
+
+            def conf2 = configurations.create("conf2")
+            assert conf2.files.empty
+        """
+
+        expect:
+        succeeds("help")
+    }
+
+    def "cannot remove configuration without dependencies and resolve it"() {
+        given:
+        mavenRepo.module("org", "foo", "1.0").publish()
+
+        buildFile << """
+            ${mavenTestRepository()}
+
+            def conf = configurations.create("conf")
+            configurations.remove(conf)
+            assert conf.files.empty
+        """
+
+        when:
+        fails("help")
+
+        then:
+        failure.assertHasCause("Expected resolvable configuration 'conf' to be present in root project")
+    }
+
+    def "removing a configuration with dependencies and resolving it fails"() {
+        given:
+        mavenRepo.module("org", "foo", "1.0").publish()
+
+        buildFile << """
+            ${mavenTestRepository()}
+
+            def conf = configurations.create("conf")
+            conf.dependencies.add(project.dependencies.create("org:foo:1.0"))
+            configurations.remove(conf)
+            conf.files
+        """
+
+        when:
+        fails("help")
+
+        then:
+        failure.assertHasCause("Expected resolvable configuration 'conf' to be present in root project")
     }
 }

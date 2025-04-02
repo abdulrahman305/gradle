@@ -16,7 +16,6 @@
 
 package org.gradle.test.fixtures.server.http;
 
-import com.google.common.base.Charsets;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -30,6 +29,7 @@ import org.gradle.test.fixtures.ResettableExpectations;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -38,6 +38,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
+
+import static org.gradle.test.fixtures.server.http.BlockingHttpServer.getCurrentTimestamp;
 
 class ChainingHttpHandler implements HttpHandler, ResettableExpectations {
     private final int timeoutMs;
@@ -130,11 +132,11 @@ class ChainingHttpHandler implements HttpHandler, ResettableExpectations {
             int id = counter.incrementAndGet();
 
             RequestOutcome outcome = requestStarted(httpExchange);
-            System.out.printf("[%d] handling %s%n", id, outcome.getDisplayName());
+            System.out.printf("[%s][%d] handling %s%n", getCurrentTimestamp(), id, outcome.getDisplayName());
 
             try {
                 ResponseProducer responseProducer = selectProducer(id, httpExchange);
-                System.out.printf("[%d] sending response for %s%n", id, outcome.getDisplayName());
+                System.out.printf("[%s][%d] sending response for %s%n", getCurrentTimestamp(), id, outcome.getDisplayName());
                 if (!responseProducer.isFailure()) {
                     responseProducer.writeTo(id, httpExchange);
                 } else {
@@ -142,11 +144,11 @@ class ChainingHttpHandler implements HttpHandler, ResettableExpectations {
                     requestFailed(outcome, failure);
                     String stacktrace = ExceptionUtils.getStackTrace(failure);
                     dumpThreadsUponTimeout(stacktrace);
-                    System.out.printf("[%d] handling failed with exception %s%n", id, stacktrace);
+                    System.out.printf("[%s][%d] handling failed with exception %s%n", getCurrentTimestamp(), id, stacktrace);
                     sendFailure(httpExchange, 400, outcome);
                 }
             } catch (Throwable t) {
-                System.out.printf("[%d] handling %s failed with exception%n", id, outcome.getDisplayName());
+                System.out.printf("[%s][%d] handling %s failed with exception%n", getCurrentTimestamp(), id, outcome.getDisplayName());
                 try {
                     sendFailure(httpExchange, 500, outcome);
                 } catch (IOException e) {
@@ -173,7 +175,7 @@ class ChainingHttpHandler implements HttpHandler, ResettableExpectations {
         if (outcome.method.equals("HEAD")) {
             httpExchange.sendResponseHeaders(responseCode, -1);
         } else {
-            byte[] message = String.format("Failed request %s", outcome.getDisplayName()).getBytes(Charsets.UTF_8);
+            byte[] message = String.format("Failed request %s", outcome.getDisplayName()).getBytes(StandardCharsets.UTF_8);
             httpExchange.sendResponseHeaders(responseCode, message.length);
             httpExchange.getResponseBody().write(message);
         }

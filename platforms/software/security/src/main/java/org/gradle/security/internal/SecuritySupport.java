@@ -34,8 +34,8 @@ import org.bouncycastle.openpgp.operator.jcajce.JcaKeyFingerprintCalculator;
 import org.gradle.api.UncheckedIOException;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -57,9 +57,6 @@ public class SecuritySupport {
             Security.setProperty("crypto.policy", "unlimited");
             Security.addProvider(new BouncyCastleProvider());
         }
-    }
-
-    public static void assertInitialized() {
     }
 
     public static boolean verify(File file, PGPSignature signature, PGPPublicKey publicKey) throws PGPException {

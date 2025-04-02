@@ -16,11 +16,13 @@
 
 package org.gradle.internal.declarativedsl.dom.operations.overlay
 
+import org.gradle.declarative.dsl.schema.DataProperty
 import org.gradle.declarative.dsl.schema.FqName
 import org.gradle.internal.declarativedsl.dom.DeclarativeDocument
 import org.gradle.internal.declarativedsl.dom.DeclarativeDocument.DocumentNode.ElementNode
 import org.gradle.internal.declarativedsl.dom.DeclarativeDocument.DocumentNode.ErrorNode
 import org.gradle.internal.declarativedsl.dom.DeclarativeDocument.DocumentNode.PropertyNode
+import org.gradle.internal.declarativedsl.dom.DeclarativeDocument.DocumentNode.PropertyNode.PropertyAugmentation.None
 import org.gradle.internal.declarativedsl.dom.DeclarativeDocument.ValueNode
 import org.gradle.internal.declarativedsl.dom.DefaultElementNode
 import org.gradle.internal.declarativedsl.dom.DocumentResolution
@@ -30,6 +32,7 @@ import org.gradle.internal.declarativedsl.dom.DocumentResolution.ErrorResolution
 import org.gradle.internal.declarativedsl.dom.DocumentResolution.PropertyResolution
 import org.gradle.internal.declarativedsl.dom.DocumentResolution.ValueNodeResolution
 import org.gradle.internal.declarativedsl.dom.DocumentResolution.ValueNodeResolution.LiteralValueResolved
+import org.gradle.internal.declarativedsl.dom.DocumentResolution.ValueNodeResolution.NamedReferenceResolution
 import org.gradle.internal.declarativedsl.dom.DocumentResolution.ValueNodeResolution.ValueFactoryResolution
 import org.gradle.internal.declarativedsl.dom.data.NodeDataContainer
 import org.gradle.internal.declarativedsl.dom.data.ValueData
@@ -41,6 +44,7 @@ import org.gradle.internal.declarativedsl.dom.operations.overlay.OverlayNodeOrig
 import org.gradle.internal.declarativedsl.dom.resolution.DocumentResolutionContainer
 import org.gradle.internal.declarativedsl.dom.resolution.DocumentWithResolution
 import org.gradle.internal.declarativedsl.language.SourceData
+import org.jetbrains.kotlin.ir.types.IdSignatureValues.result
 
 
 object DocumentOverlay {
@@ -123,8 +127,9 @@ class DocumentOverlayContext(
         override fun data(node: ElementNode): OverlayNodeOrigin.OverlayElementOrigin = overlayElementOrigin.getValue(node)
         override fun data(node: PropertyNode): OverlayNodeOrigin.OverlayPropertyOrigin = overlayPropertyOrigin.getValue(node)
         override fun data(node: ErrorNode): OverlayNodeOrigin.OverlayErrorOrigin = overlayErrorOrigin.getValue(node)
-        override fun data(value: ValueNode.ValueFactoryNode): OverlayValueOrigin = overlayValueOrigin.getValue(value)
-        override fun data(value: ValueNode.LiteralValueNode): OverlayValueOrigin = overlayValueOrigin.getValue(value)
+        override fun data(node: ValueNode.ValueFactoryNode): OverlayValueOrigin = overlayValueOrigin.getValue(node)
+        override fun data(node: ValueNode.LiteralValueNode): OverlayValueOrigin = overlayValueOrigin.getValue(node)
+        override fun data(node: ValueNode.NamedReferenceNode): OverlayValueOrigin = overlayValueOrigin.getValue(node)
     }
 
     fun mergeRecursively(
@@ -149,25 +154,37 @@ class DocumentOverlayContext(
             }
         }
 
+        val overlayItemsGroupedByKey = overlay.groupBy(overlayKeyMapper::mapNodeToMergeKey)
+
         // Then for each overlay item, merge it with the matching underlay items, if any:
         overlay.forEach { overlayItem ->
             val overlayMergeKey = overlayKeyMapper.mapNodeToMergeKey(overlayItem)
 
             when (overlayItem) {
                 is PropertyNode -> {
-                    // Either there is no underlay property or there is one, but we have ignored it in the underlay traversal
-                    // above because it had a matching overlay merge key. In any case, even if there was a matching underlay
-                    // property, we are no longer interested in it because the overlay property wins.
-                    result.add(overlayItem)
-                    recordValueOriginRecursively(overlayItem.value, FromOverlay(overlayItem))
-
-                    // However, if there was a matching underlay property, we want to record that in the overlay origins:
-                    underlayNodesByMergeKey[overlayMergeKey]?.also { underlayItems ->
-                        val underlayProperty = underlayItems.last() as? PropertyNode ?: error("cannot merge a property $overlayItem with non-properties $underlayItems")
-                        overlayPropertyOrigin[overlayItem] = OverlayNodeOrigin.ShadowedProperty(underlayProperty, overlayItem)
-                    } ?: run {
-                        overlayPropertyOrigin[overlayItem] = FromOverlay(overlayItem)
+                    // if a property is shadowed by another property later, skip the earlier one and handle only the last one, adding the earlier ones as shadowed
+                    if (overlayMergeKey is MergeKey.CanMergeProperty && overlayItemsGroupedByKey[overlayMergeKey]?.run { size > 1 && overlayItem != last() } == true) {
+                        return@forEach
                     }
+
+                    val overlayItems = if (overlayMergeKey is MergeKey.CannotMerge) listOf(overlayItem) else overlayItemsGroupedByKey[overlayMergeKey]!!
+                    val overlayPropertyNodes = checkAndAggregatePropertyNodes(overlayMergeKey, overlayItems, allNodesAreShadowed = false)
+                    val overlayHasReassignment = overlayPropertyNodes.allPropertyNodes.any { it.augmentation is None }
+
+                    val underlayItems = if (overlayMergeKey is MergeKey.CannotMerge) emptyList() else underlayNodesByMergeKey[overlayMergeKey].orEmpty()
+                    val underlayPropertyNodes = checkAndAggregatePropertyNodes(overlayMergeKey, underlayItems, allNodesAreShadowed = overlayHasReassignment)
+
+                    val overlayOriginForPropertyNodes = if (underlayItems.isEmpty() && overlayPropertyNodes.allPropertyNodes.size == 1)
+                        FromOverlay(overlayPropertyNodes.allPropertyNodes.single())
+                    else OverlayNodeOrigin.MergedProperties(
+                        underlayPropertyNodes.shadowedPropertyNodes,
+                        underlayPropertyNodes.effectivePropertyNodes,
+                        overlayPropertyNodes.shadowedPropertyNodes,
+                        overlayPropertyNodes.effectivePropertyNodes
+                    )
+
+                    underlayPropertyNodes.effectivePropertyNodes.forEach { addPropertyNodeToResult(it, overlayOriginForPropertyNodes, result::add) } // empty if reassigned in the overlay
+                    overlayPropertyNodes.effectivePropertyNodes.forEach { addPropertyNodeToResult(it, overlayOriginForPropertyNodes, result::add) }
                 }
 
                 is ErrorNode -> {
@@ -206,6 +223,20 @@ class DocumentOverlayContext(
         return result
     }
 
+    private fun addPropertyNodeToResult(property: PropertyNode, overlayNodeOrigin: OverlayNodeOrigin.OverlayPropertyOrigin, addToResult: (PropertyNode) -> Unit) {
+        addToResult(property)
+        overlayPropertyOrigin[property] = overlayNodeOrigin
+        val valueOrigin = when (overlayNodeOrigin) {
+            is FromOverlay -> FromOverlay(property)
+            is FromUnderlay -> FromUnderlay(property)
+            is OverlayNodeOrigin.MergedProperties -> when (property) {
+                in overlayNodeOrigin.effectivePropertiesFromOverlay -> FromOverlay(property)
+                in overlayNodeOrigin.effectivePropertiesFromUnderlay -> FromUnderlay(property)
+                else -> error("$property not found in effective properties of $overlayNodeOrigin")
+            }
+        }
+        recordValueOriginRecursively(property.value, valueOrigin)
+    }
 
     private
     fun recordAsCopiedRecursively(node: DeclarativeDocument.DocumentNode, originFactory: (DeclarativeDocument.DocumentNode) -> CopiedOrigin) {
@@ -233,7 +264,8 @@ class DocumentOverlayContext(
         overlayValueOrigin[value] = origin
         when (value) {
             is ValueNode.ValueFactoryNode -> value.values.forEach { recordValueOriginRecursively(it, origin) }
-            is ValueNode.LiteralValueNode -> Unit
+            is ValueNode.LiteralValueNode,
+            is ValueNode.NamedReferenceNode -> Unit
         }
     }
 
@@ -251,10 +283,10 @@ class DocumentOverlayContext(
         data object CannotMerge : MergeKey
 
         /**
-         * The key for properties that can get merged by shadowing.
+         * The key for properties that can get merged by shadowing or augmentation.
          */
         data class CanMergeProperty(
-            val propertyName: String
+            val property: DataProperty
         ) : MergeKey
 
         /**
@@ -264,7 +296,8 @@ class DocumentOverlayContext(
          */
         data class CanMergeBlock(
             val functionName: String,
-            val configuredTypeName: FqName
+            val configuredTypeName: FqName,
+            val identityValues: List<Any?>
         ) : MergeKey
     }
 
@@ -287,16 +320,16 @@ fun resolutionContainerMergeKeyMapper(
 ) = DocumentOverlayContext.MergeKeyMapper { node ->
     when (val nodeResolution = resolutionContainer.data(node)) {
         is ElementResolution.SuccessfulElementResolution.ContainerElementResolved ->
-            // TODO: this will need adjustment once access-and-configure semantics get replaced with ensure-exists-and-configure with literal key arguments
             DocumentOverlayContext.MergeKey.CannotMerge
 
         is ElementResolution.SuccessfulElementResolution.ConfiguringElementResolved -> {
             val name = (node as ElementNode).name
-            DocumentOverlayContext.MergeKey.CanMergeBlock(name, nodeResolution.elementType.name)
+            val identityValues = node.elementValues.map { if (it is ValueNode.LiteralValueNode) it.value else null }
+            DocumentOverlayContext.MergeKey.CanMergeBlock(name, nodeResolution.elementType.name, identityValues)
         }
 
         is PropertyResolution.PropertyAssignmentResolved ->
-            DocumentOverlayContext.MergeKey.CanMergeProperty(nodeResolution.property.name)
+            DocumentOverlayContext.MergeKey.CanMergeProperty(nodeResolution.property)
 
         is ElementResolution.ElementNotResolved,
         is PropertyResolution.PropertyNotAssigned,
@@ -313,5 +346,34 @@ class OverlayResolutionContainer(
 ) : DocumentResolutionContainer,
     NodeDataContainer<DocumentNodeResolution, ElementResolution, PropertyResolution, ErrorResolution> by
     OverlayRoutedNodeDataContainer(overlayOriginContainer, underlay, overlay),
-    ValueDataContainer<ValueNodeResolution, ValueFactoryResolution, LiteralValueResolved> by
+    ValueDataContainer<ValueNodeResolution, ValueFactoryResolution, LiteralValueResolved, NamedReferenceResolution> by
     OverlayRoutedValueDataContainer(overlayOriginContainer, underlay, overlay)
+
+
+private fun checkAndAggregatePropertyNodes(
+    key: DocumentOverlayContext.MergeKey,
+    nodes: List<DeclarativeDocument.DocumentNode>,
+    allNodesAreShadowed: Boolean
+): PropertyNodes {
+    val propertyNodes = nodes.filterIsInstance<PropertyNode>().also {
+        if (it.size != nodes.size) error("Non-property nodes mixed with property nodes in $nodes for key $key")
+    }
+
+    val effectivePropertyNodes = if (allNodesAreShadowed) emptyList() else dropPropertyNodesShadowedByReassignment(propertyNodes)
+    return PropertyNodes(
+        propertyNodes.toSet(),
+        propertyNodes.take(propertyNodes.size - effectivePropertyNodes.size).toSet(),
+        effectivePropertyNodes.toSet()
+    )
+}
+
+private data class PropertyNodes(
+    val allPropertyNodes: Set<PropertyNode>,
+    val shadowedPropertyNodes: Set<PropertyNode>,
+    val effectivePropertyNodes: Set<PropertyNode>
+)
+
+private fun dropPropertyNodesShadowedByReassignment(propertyNodes: List<PropertyNode>): List<PropertyNode> {
+    val lastReassignmentIndex = propertyNodes.indexOfLast { it.augmentation == None }
+    return if (lastReassignmentIndex == -1) propertyNodes else propertyNodes.subList(lastReassignmentIndex, propertyNodes.size)
+}

@@ -20,8 +20,8 @@ import org.gradle.api.internal.file.FileCollectionFactory
 import org.gradle.cli.CommandLineParser
 import org.gradle.initialization.layout.BuildLayoutFactory
 import org.gradle.internal.Actions
-import org.gradle.internal.Factory
 import org.gradle.internal.jvm.Jvm
+import org.gradle.internal.logging.LoggingManagerFactory
 import org.gradle.internal.logging.LoggingManagerInternal
 import org.gradle.internal.logging.console.GlobalUserInputReceiver
 import org.gradle.internal.logging.events.OutputEventListener
@@ -60,7 +60,9 @@ class BuildActionsFactoryTest extends Specification {
     ServiceRegistry basicServices
 
     def setup() {
-        def factoryLoggingManager = Mock(Factory) { _ * create() >> Mock(LoggingManagerInternal) }
+        def factoryLoggingManager = Mock(LoggingManagerFactory) {
+            _ * createLoggingManager() >> Mock(LoggingManagerInternal)
+        }
         loggingServices = ServiceRegistryBuilder.builder()
             .provider { registration ->
                 registration.add(OutputEventListener, Mock(OutputEventListener))
@@ -68,7 +70,7 @@ class BuildActionsFactoryTest extends Specification {
                 registration.add(StyledTextOutputFactory, Mock(StyledTextOutputFactory))
                 registration.addProvider(new ServiceRegistrationProvider() {
                     @Provides
-                    Factory<LoggingManagerInternal> createFactory() {
+                    LoggingManagerFactory createFactory() {
                         return factoryLoggingManager
                     }
                 })
@@ -151,7 +153,7 @@ class BuildActionsFactoryTest extends Specification {
     def "daemon context can be built from current process"() {
         def request = createDaemonRequest()
         def currentJvmOptions = new JvmOptions(Mock(FileCollectionFactory))
-        currentJvmOptions.jvmArgs = []
+        currentJvmOptions.jvmArgs = ["-Dtest=value", "-ea", "-Dfile.encoding=UTF-8", "-Duser.country=US", "-Duser.language=en", "-Duser.variant"]
 
         def daemon = BuildActionsFactory.buildDaemonContextForCurrentProcess(request, new CurrentProcess(Jvm.current(), currentJvmOptions))
 
@@ -164,14 +166,18 @@ class BuildActionsFactoryTest extends Specification {
 
         // should report current JVM's home
         daemon.javaHome == Jvm.current().javaHome
+        // should compare to the immutable properties of the process
+        daemon.daemonOpts.size() == 5
+        daemon.daemonOpts.containsAll(["-ea", "-Dfile.encoding=UTF-8", "-Duser.country=US", "-Duser.language=en", "-Duser.variant"])
         !daemon.shouldApplyInstrumentationAgent()
+
+        // These aren't reported properly in the daemon context
         daemon.nativeServicesMode == request.nativeServicesMode
         daemon.priority == request.priority
-        daemon.daemonOpts == request.daemonOpts
     }
 
     private DaemonRequestContext createDaemonRequest(Collection<String> daemonOpts = []) {
-        def request = new DaemonRequestContext(new DaemonJvmCriteria.Spec(JavaLanguageVersion.current(), null, null), daemonOpts, false, NativeServices.NativeServicesMode.NOT_SET, DaemonPriority.NORMAL)
+        def request = new DaemonRequestContext(new DaemonJvmCriteria.Spec(JavaLanguageVersion.current(), null, null, false), daemonOpts, false, NativeServices.NativeServicesMode.NOT_SET, DaemonPriority.NORMAL)
         request
     }
 

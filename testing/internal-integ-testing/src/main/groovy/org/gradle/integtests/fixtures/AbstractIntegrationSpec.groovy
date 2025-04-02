@@ -21,6 +21,8 @@ import org.eclipse.jgit.lib.Config
 import org.gradle.api.Action
 import org.gradle.api.internal.DocumentationRegistry
 import org.gradle.api.problems.internal.DefaultProblemProgressDetails
+import org.gradle.api.problems.internal.DefaultProblemsSummaryProgressDetails
+import org.gradle.api.problems.internal.ProblemSummaryData
 import org.gradle.integtests.fixtures.build.BuildTestFile
 import org.gradle.integtests.fixtures.build.BuildTestFixture
 import org.gradle.integtests.fixtures.configurationcache.ConfigurationCacheBuildOperationsFixture
@@ -59,6 +61,7 @@ import java.util.regex.Pattern
 
 import static org.gradle.integtests.fixtures.timeout.IntegrationTestTimeout.DEFAULT_TIMEOUT_SECONDS
 import static org.gradle.test.fixtures.dsl.GradleDsl.GROOVY
+import static org.gradle.test.fixtures.dsl.GradleDsl.KOTLIN
 import static org.gradle.util.Matchers.matchesRegexp
 
 /**
@@ -69,7 +72,7 @@ import static org.gradle.util.Matchers.matchesRegexp
 @CleanupTestDirectory
 @SuppressWarnings("IntegrationTestFixtures")
 @IntegrationTestTimeout(DEFAULT_TIMEOUT_SECONDS)
-abstract class AbstractIntegrationSpec extends Specification implements LanguageSpecificTestFileFixture {
+abstract class AbstractIntegrationSpec extends Specification implements LanguageSpecificTestFileFixture, HasGradleExecutor {
 
     @Rule
     public final TestNameTestDirectoryProvider temporaryFolder = new TestNameTestDirectoryProvider(getClass())
@@ -79,19 +82,28 @@ abstract class AbstractIntegrationSpec extends Specification implements Language
 
     GradleDistribution distribution = new UnderDevelopmentGradleDistribution(getBuildContext())
     private GradleExecuter executor
-    private boolean ignoreCleanupAssertions
+    boolean ignoreCleanupAssertions
 
     private boolean enableProblemsApiCheck = false
-    private BuildOperationsFixture buildOperationsFixture = null
+    protected BuildOperationsFixture buildOperationsFixture = null
 
     GradleExecuter getExecuter() {
         if (executor == null) {
             executor = createExecuter()
-            if (ignoreCleanupAssertions) {
-                executor.ignoreCleanupAssertions()
-            }
         }
         return executor
+    }
+
+    /**
+     * Applies configuration that needs to be applied
+     * every time an executer runs.
+     *
+     * May be overwritten. In most cases, the overrides should ensure to invoke the base implementation.
+     */
+    protected void setupExecuter() {
+        if (ignoreCleanupAssertions) {
+            executor.ignoreCleanupAssertions()
+        }
     }
 
     BuildTestFixture buildTestFixture = new BuildTestFixture(temporaryFolder)
@@ -133,7 +145,9 @@ abstract class AbstractIntegrationSpec extends Specification implements Language
         // See how this is done in SmokeTestGradleRunner
         if (enableProblemsApiCheck) {
             collectedProblems.each {
-                KnownProblemIds.assertIsKnown(it)
+                if(!ignoreCleanupAssertions) {
+                    KnownProblemIds.assertIsKnown(it)
+                }
             }
 
             if (getReceivedProblems().every { it == null }) {
@@ -145,7 +159,9 @@ abstract class AbstractIntegrationSpec extends Specification implements Language
                         printCollectedProblems(problem, index)
                     }
                 }
-                throw new AssertionError("Not all received problems were validated")
+                if (!ignoreCleanupAssertions) {
+                    throw new AssertionError("Not all received problems were validated")
+                }
             }
         }
 
@@ -191,7 +207,7 @@ abstract class AbstractIntegrationSpec extends Specification implements Language
      * Want syntax highlighting inside of IntelliJ? Consider using {@link AbstractIntegrationSpec#buildFile(String)}
      */
     TestFile getBuildFile() {
-        testDirectory.file(getDefaultBuildFileName())
+        getBuildFile(GROOVY)
     }
 
     String getTestJunitCoordinates() {
@@ -199,19 +215,15 @@ abstract class AbstractIntegrationSpec extends Specification implements Language
     }
 
     TestFile getBuildKotlinFile() {
-        testDirectory.file(defaultBuildKotlinFileName)
+        getBuildFile(KOTLIN)
     }
 
-    protected String getDefaultBuildFileName() {
-        'build.gradle'
-    }
-
-    protected String getDefaultBuildKotlinFileName() {
-        'build.gradle.kts'
+    TestFile getBuildFile(GradleDsl dsl, Object... path) {
+        testDirectory.file(*path, dsl.fileNameFor("build"))
     }
 
     protected TestFile getSettingsFile() {
-        testDirectory.file(settingsFileName)
+        getSettingsFile(GROOVY)
     }
 
     protected TestFile getInitScriptFile() {
@@ -220,7 +232,11 @@ abstract class AbstractIntegrationSpec extends Specification implements Language
 
 
     protected TestFile getSettingsKotlinFile() {
-        testDirectory.file(settingsKotlinFileName)
+        getSettingsFile(KOTLIN)
+    }
+
+    protected TestFile getSettingsFile(GradleDsl dsl) {
+        testDirectory.file(dsl.fileNameFor("settings"))
     }
 
     protected TestFile getPropertiesFile() {
@@ -231,12 +247,8 @@ abstract class AbstractIntegrationSpec extends Specification implements Language
         testDirectory.file('gradle/libs.versions.toml')
     }
 
-    protected static String getSettingsFileName() {
-        return 'settings.gradle'
-    }
-
-    protected static String getSettingsKotlinFileName() {
-        return 'settings.gradle.kts'
+    private static String getSettingsFileName(GradleDsl dsl) {
+        return dsl.fileNameFor("settings")
     }
 
     protected static String getInitScriptFileName() {
@@ -398,11 +410,11 @@ tmpdir is currently ${System.getProperty("java.io.tmpdir")}""")
         }
         def currentDirectory = testDirectory
         for (; ;) {
-            def settingsFile = currentDirectory.file(settingsFileName)
+            def settingsFile = currentDirectory.file(getSettingsFileName(GROOVY))
             if (settingsFile.exists()) {
                 return settingsFile
             }
-            settingsFile = currentDirectory.file(settingsKotlinFileName)
+            settingsFile = currentDirectory.file(getSettingsFileName(KOTLIN))
             if (settingsFile.exists()) {
                 return settingsFile
             }
@@ -414,6 +426,7 @@ tmpdir is currently ${System.getProperty("java.io.tmpdir")}""")
     }
 
     AbstractIntegrationSpec withBuildCache() {
+        executer.withArgument("--no-problems-report")
         executer.withBuildCacheEnabled()
         this
     }
@@ -438,6 +451,7 @@ tmpdir is currently ${System.getProperty("java.io.tmpdir")}""")
     }
 
     protected ExecutionResult succeeds(String... tasks) {
+        setupExecuter()
         resetProblemApiCheck()
 
         result = executer.withTasks(*tasks).run()
@@ -486,6 +500,7 @@ tmpdir is currently ${System.getProperty("java.io.tmpdir")}""")
     }
 
     protected ExecutionFailure fails(List<String> tasks) {
+        setupExecuter()
         resetProblemApiCheck()
 
         failure = executer.withTasks(tasks).runWithFailure()
@@ -725,7 +740,7 @@ tmpdir is currently ${System.getProperty("java.io.tmpdir")}""")
     }
 
     /**
-     * Called by {@link ToBeFixedForConfigurationCacheExtension} when a test fails as expected so no further checks are applied.
+     * Called by {@link ToBeFixedSpecInterceptor} when a test fails as expected so no further checks are applied.
      */
     void ignoreCleanupAssertions() {
         this.ignoreCleanupAssertions = true
@@ -740,6 +755,10 @@ tmpdir is currently ${System.getProperty("java.io.tmpdir")}""")
     void resetExecuter() {
         this.ignoreCleanupAssertions = false
         recreateExecuter()
+    }
+
+    BuildOperationsFixture newBuildOperationsFixture() {
+        new BuildOperationsFixture(executer, temporaryFolder)
     }
 
     def resetProblemApiCheck() {
@@ -782,6 +801,16 @@ tmpdir is currently ${System.getProperty("java.io.tmpdir")}""")
                 // So, just ignore them all the time, even if the test has requested to not ignore these warnings.
                 it.fqid != 'deprecation:executing-gradle-on-jvm-versions-and-lower'
             }
+        }
+    }
+
+    List<List<ProblemSummaryData>> getProblemSummaries() {
+        if (!enableProblemsApiCheck) {
+            throw new IllegalStateException('Problems API check is not enabled')
+        }
+
+        return buildOperationsFixture.all().collectMany { operation ->
+            return operation.progress(DefaultProblemsSummaryProgressDetails.class).collect { it.details.get("problemIdCounts") }
         }
     }
 
@@ -831,6 +860,11 @@ tmpdir is currently ${System.getProperty("java.io.tmpdir")}""")
                 }
                 if (p1.details != p2.details) {
                     return p1.details <=> p2.details
+                }
+                if (p1.additionalData.getAsMap() != p2.additionalData.getAsMap()) {
+                    String sortableP1 = p1.additionalData.getAsMap().collect { k, v -> "$k=$v" }.sort().join(", ")
+                    String sortableP2 = p2.additionalData.getAsMap().collect { k, v -> "$k=$v" }.sort().join(", ")
+                    return sortableP1 <=> sortableP2
                 }
                 return 0
             }

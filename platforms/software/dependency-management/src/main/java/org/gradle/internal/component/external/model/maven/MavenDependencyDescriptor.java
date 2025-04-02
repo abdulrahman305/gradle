@@ -23,8 +23,8 @@ import org.gradle.internal.component.external.descriptor.MavenScope;
 import org.gradle.internal.component.external.model.ExternalDependencyDescriptor;
 import org.gradle.internal.component.model.ExcludeMetadata;
 import org.gradle.internal.component.model.IvyArtifactName;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 
@@ -114,7 +114,7 @@ public class MavenDependencyDescriptor extends ExternalDependencyDescriptor {
     /**
      * When an optional dependency declares a classifier, that classifier is effectively ignored, and the optional
      * dependency will update the version of any dependency with matching GAV.
-     * (Same goes for <type> on optional dependencies: they are effectively ignored).
+     * (Same goes for {@code <type>} on optional dependencies: they are effectively ignored).
      *
      * Note that this doesn't really match with Maven, where an optional dependency with classifier will
      * provide a version for any other dependency with matching GAV + classifier.

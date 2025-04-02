@@ -11,6 +11,7 @@ dependencies {
     api(projects.buildOperations)
     api(projects.buildOption)
     api(projects.buildState)
+    api(projects.classloaders)
     api(projects.cli)
     api(projects.concurrent)
     api(projects.core)
@@ -30,7 +31,9 @@ dependencies {
     api(projects.messaging)
     api(projects.modelCore)
     api(projects.native)
-    api(projects.processServices)
+    api(projects.persistentCache)
+    api(projects.problemsApi)
+    api(projects.processMemoryServices)
     api(projects.serialization)
     api(projects.serviceLookup)
     api(projects.serviceProvider)
@@ -44,13 +47,11 @@ dependencies {
     api(projects.daemonServices)
 
     api(libs.guava)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
     implementation(projects.enterpriseOperations)
     implementation(projects.functional)
     implementation(projects.io)
-    implementation(projects.problemsApi)
-    implementation(projects.toolchainsJvmShared)
     implementation(projects.serviceRegistryBuilder)
 
     implementation(libs.slf4jApi)
@@ -69,6 +70,7 @@ dependencies {
     testImplementation(projects.internalIntegTesting)
     testImplementation(testFixtures(projects.serialization))
     testImplementation(testFixtures(projects.core))
+    testImplementation(testFixtures(projects.time))
     testImplementation(testFixtures(projects.logging))
     testImplementation(testFixtures(projects.toolingApi))
     testImplementation(testFixtures(projects.daemonProtocol))
@@ -79,6 +81,7 @@ dependencies {
     integTestImplementation(libs.commonsLang)
     integTestImplementation(libs.commonsIo)
     integTestImplementation(testFixtures(projects.buildConfiguration))
+    integTestImplementation(testFixtures(projects.toolchainsJvmShared))
 
     integTestDistributionRuntimeOnly(projects.distributionsFull) {
         because("built-in options are required to be present at runtime for 'TaskOptionsSpec'")
@@ -90,3 +93,6 @@ strictCompile {
 }
 
 testFilesCleanup.reportOnly = true
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

@@ -47,8 +47,6 @@ dependencies {
         transitive = false
     }
 
-    conf module('org.foo:moduleOne:1.0'), module('org.foo:moduleTwo:1.0')
-
     gradleStuff gradleApi()
 
     allowsCollections "org.mockito:mockito-core:1.8", someDependency
@@ -65,9 +63,6 @@ task checkDeps {
         assert configuredDep.version == '1.1'
         assert configuredDep.transitive == false
 
-        assert deps.find { it instanceof ClientModule && it.name == 'moduleOne' && it.group == 'org.foo' }
-        assert deps.find { it instanceof ClientModule && it.name == 'moduleTwo' && it.version == '1.0' }
-
         deps = configurations.gradleStuff.dependencies
         assert deps.findAll { it instanceof SelfResolvingDependency }.size() > 0 : "should include gradle api jars"
 
@@ -79,88 +74,44 @@ task checkDeps {
 }
 """
         then:
-        executer.expectDocumentedDeprecationWarning("Declaring client module dependencies has been deprecated. This is scheduled to be removed in Gradle 9.0. Please use component metadata rules instead. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#declaring_client_module_dependencies")
         succeeds 'checkDeps'
     }
 
     @ToBeFixedForConfigurationCache(because = "Task uses the Configuration API")
     def "understands project notations"() {
         when:
-        createDirs("otherProject")
         settingsFile << "include 'otherProject'"
 
         buildFile <<  """
-configurations {
-    conf
-    confTwo
-}
+            configurations {
+                conf
+                confTwo
+            }
+            dependencies {
+                conf project(':otherProject')
+                confTwo project(path: ':otherProject', configuration: 'otherConf')
+            }
 
-project(':otherProject') {
-    configurations {
-        otherConf
-    }
-}
+            task checkDeps {
+                doLast {
+                    def deps = configurations.conf.incoming.dependencies
+                    assert deps.size() == 1
+                    assert deps.find { it.path == ':otherProject' && it.targetConfiguration == null }
 
-dependencies {
-    conf project(':otherProject')
-    confTwo project(path: ':otherProject', configuration: 'otherConf')
-}
+                    deps = configurations.confTwo.incoming.dependencies
+                    assert deps.size() == 1
+                    assert deps.find { it.path == ':otherProject' && it.targetConfiguration == 'otherConf' }
+                }
+            }
+        """
 
-task checkDeps {
-    doLast {
-        def deps = configurations.conf.incoming.dependencies
-        assert deps.size() == 1
-        assert deps.find { it.dependencyProject.path == ':otherProject' && it.targetConfiguration == null }
+        file("otherProject/build.gradle") << """
+            configurations {
+                otherConf
+            }
+        """
 
-        deps = configurations.confTwo.incoming.dependencies
-        assert deps.size() == 1
-        assert deps.find { it.dependencyProject.path == ':otherProject' && it.targetConfiguration == 'otherConf' }
-    }
-}
-"""
         then:
-        succeeds 'checkDeps'
-    }
-
-    @ToBeFixedForConfigurationCache(because = "Task uses the Configuration API")
-    def "understands client module notation with dependencies"() {
-        when:
-        buildFile <<  """
-configurations {
-    conf
-}
-
-dependencies {
-    conf module('org.foo:moduleOne:1.0') {
-        dependency 'org.foo:bar:1.0'
-        dependencies ('org.foo:one:1', 'org.foo:two:1')
-        dependency ('high:five:5') { transitive = false }
-        dependency('org.test:lateversion') {
-               version {
-                  prefer '1.0'
-                  strictly '1.1' // intentionally overriding "prefer"
-               }
-           }
-    }
-}
-
-task checkDeps {
-    doLast {
-        def deps = configurations.conf.incoming.dependencies
-        assert deps.size() == 1
-        def dep = deps.find { it instanceof ClientModule && it.name == 'moduleOne' }
-        assert dep
-        assert dep.dependencies.size() == 5
-        assert dep.dependencies.find { it.group == 'org.foo' && it.name == 'bar' && it.version == '1.0' && it.transitive == true }
-        assert dep.dependencies.find { it.group == 'org.foo' && it.name == 'one' && it.version == '1' }
-        assert dep.dependencies.find { it.group == 'org.foo' && it.name == 'two' && it.version == '1' }
-        assert dep.dependencies.find { it.group == 'high' && it.name == 'five' && it.version == '5' && it.transitive == false }
-        assert dep.dependencies.find { it.group == 'org.test' && it.name == 'lateversion' && it.version == '1.1' }
-    }
-}
-"""
-        then:
-        executer.expectDocumentedDeprecationWarning("Declaring client module dependencies has been deprecated. This is scheduled to be removed in Gradle 9.0. Please use component metadata rules instead. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#declaring_client_module_dependencies")
         succeeds 'checkDeps'
     }
 
@@ -218,31 +169,27 @@ task checkDeps
         failure.assertThatCause(CoreMatchers.startsWith("Cannot convert a null value to an object of type Dependency"))
     }
 
-    @ToBeFixedForConfigurationCache(because = "Task uses the Configuration API")
     @Issue("https://issues.gradle.org/browse/GRADLE-3271")
-    def "gradleApi dependency implements contentEquals"() {
+    def "gradle API equality"() {
         when:
         buildFile << """
             configurations {
-              conf
+                conf
             }
 
             dependencies {
-              conf gradleApi()
+                conf gradleApi()
             }
 
-            task check {
-                doLast {
-                    assert dependencies.gradleApi().contentEquals(dependencies.gradleApi())
-                    assert dependencies.gradleApi().is(dependencies.gradleApi())
-                    assert dependencies.gradleApi() == dependencies.gradleApi()
-                    assert configurations.conf.dependencies.contains(dependencies.gradleApi())
-                }
-            }
+            assert dependencies.gradleApi().contentEquals(dependencies.gradleApi())
+            assert dependencies.gradleApi().is(dependencies.gradleApi())
+            assert dependencies.gradleApi() == dependencies.gradleApi()
+            assert configurations.conf.dependencies.contains(dependencies.gradleApi())
         """
 
         then:
-        succeeds "check"
+        executer.expectDocumentedDeprecationWarning("The Dependency.contentEquals(Dependency) method has been deprecated. This is scheduled to be removed in Gradle 9.0. Use Object.equals(Object) instead Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#deprecated_content_equals")
+        succeeds("help")
     }
 
     @ToBeFixedForConfigurationCache(because = "Task uses the Configuration API")
@@ -286,5 +233,23 @@ task checkDeps
 
         then:
         result.hasErrorOutput("Adding a Configuration as a dependency is no longer allowed as of Gradle 8.0.")
+    }
+
+    def "contentEquals is deprecated"() {
+        buildFile << """
+            def d1 = dependencies.create(files())
+            def d2 = dependencies.create('org.foo:baz:1.0')
+            def d3 = dependencies.create(project)
+
+            def other = dependencies.create('org.other:foo:1.0')
+
+            d1.contentEquals(other)
+            d2.contentEquals(other)
+            d3.contentEquals(other)
+        """
+
+        expect:
+        3.times { executer.expectDocumentedDeprecationWarning("The Dependency.contentEquals(Dependency) method has been deprecated. This is scheduled to be removed in Gradle 9.0. Use Object.equals(Object) instead Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#deprecated_content_equals") }
+        succeeds("help")
     }
 }

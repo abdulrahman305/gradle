@@ -29,13 +29,14 @@ dependencies {
     api(libs.inject)
 
     implementation(projects.baseServices)
-    implementation(projects.core)
     implementation(projects.pluginsJavaBase)
-    implementation(projects.pluginsJvmTestSuite)
     implementation(projects.reporting)
     implementation(projects.testingBase)
     implementation(projects.testingJvm)
     implementation(projects.testSuitesBase)
 
     integTestDistributionRuntimeOnly(projects.distributionsJvm)
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

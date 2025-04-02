@@ -43,18 +43,17 @@ import org.gradle.internal.instrumentation.processor.codegen.JavadocUtils;
 import org.gradle.internal.instrumentation.processor.codegen.RequestGroupingInstrumentationClassSourceGenerator;
 import org.gradle.internal.instrumentation.util.NameUtil;
 import org.gradle.model.internal.asm.MethodVisitorScope;
+import org.jspecify.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.MethodNode;
 
-import javax.annotation.Nullable;
 import javax.lang.model.element.Modifier;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -65,7 +64,6 @@ import java.util.stream.Stream;
 
 import static org.gradle.internal.instrumentation.processor.codegen.GradleReferencedType.GENERATED_ANNOTATION;
 import static org.gradle.internal.instrumentation.processor.codegen.TypeUtils.typeName;
-import static org.gradle.util.internal.TextUtil.camelToKebabCase;
 
 /**
  * Generates a single bytecode rewriter class.
@@ -204,20 +202,20 @@ public class InterceptJvmCallsGenerator extends RequestGroupingInstrumentationCl
         String interceptorName = request.getImplementationInfo().getName();
         String interceptorDesc = request.getImplementationInfo().getDescriptor();
         method.addStatement(
-            "final $1T builder = $1T.create(tag, owner, descriptor, $2N, $3S, $4S)",
+            "$1T builder = $1T.create(tag, owner, descriptor, $2N, $3S, $4S)",
             DefaultBridgeMethodBuilder.class,
             implTypeField,
             interceptorName,
             interceptorDesc);
         CallableInfo callable = request.getInterceptedCallable();
         if (callable.hasKotlinDefaultMaskParam()) {
-            method.addStatement("builder.withKotlinDefaultMask()");
+            method.addStatement("builder = builder.withKotlinDefaultMask()");
         }
         if (callable.hasCallerClassNameParam()) {
-            method.addStatement("builder.withClassName(className)");
+            method.addStatement("builder = builder.withClassName(className)");
         }
         if (callable.hasInjectVisitorContextParam()) {
-            method.addStatement("builder.withVisitorContext(context)");
+            method.addStatement("builder = builder.withVisitorContext(context)");
         }
         method.addStatement("return builder");
     }
@@ -244,7 +242,7 @@ public class InterceptJvmCallsGenerator extends RequestGroupingInstrumentationCl
                 String fieldTypeName = knownSimpleNames.add(implementationClassName.simpleName()) ?
                     implementationClassName.simpleName() :
                     implementationClassName.reflectionName();
-                String fullFieldName = camelToKebabCase(fieldTypeName).replace("-", "_").toUpperCase(Locale.US) + "_TYPE";
+                String fullFieldName = NameUtil.camelToUpperUnderscoreCase(fieldTypeName) + "_TYPE";
                 return FieldSpec.builder(String.class, fullFieldName, Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
                     .initializer("$S", implementationClassName.reflectionName().replace(".", "/"))
                     .build();

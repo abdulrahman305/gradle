@@ -57,8 +57,9 @@ import org.gradle.internal.instrumentation.api.annotations.ToBeReplacedByLazyPro
  * method or directly by an action (or closure) passed into {@link #pom(org.gradle.api.Action)}.
  * As a last resort, it is possible to modify the generated POM using the {@link MavenPom#withXml(org.gradle.api.Action)} method.
  * </p>
- * <h4>Example of publishing a Java module with a source artifact and a customized POM</h4>
+ *
  * <pre class='autoTested'>
+ * // Example of publishing a Java module with a source artifact and a customized POM
  * plugins {
  *     id 'java'
  *     id 'maven-publish'
@@ -216,12 +217,12 @@ public interface MavenPublication extends Publication {
      *     maven(MavenPublication) {
      *       artifact(sourceJar) {
      *         // These values will be used instead of the values from the task. The task values will not be updated.
-     *         classifier "src"
-     *         extension "zip"
+     *         classifier = "src"
+     *         extension = "zip"
      *       }
      *       artifact("my-docs-file.htm") {
-     *         classifier "documentation"
-     *         extension "html"
+     *         classifier = "documentation"
+     *         extension = "html"
      *       }
      *     }
      *   }

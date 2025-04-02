@@ -16,36 +16,39 @@
 package org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.builder;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.gradle.api.Action;
 import org.gradle.api.GradleException;
 import org.gradle.api.artifacts.component.ComponentSelector;
 import org.gradle.api.artifacts.component.ModuleComponentSelector;
-import org.gradle.api.capabilities.Capability;
 import org.gradle.api.internal.artifacts.ComponentSelectorConverter;
 import org.gradle.api.internal.artifacts.ResolvedVersionConstraint;
 import org.gradle.api.internal.artifacts.configurations.ConflictResolution;
-import org.gradle.api.internal.artifacts.dsl.ModuleReplacementsData;
+import org.gradle.api.internal.artifacts.dsl.ImmutableModuleReplacements;
+import org.gradle.api.internal.artifacts.ivyservice.ResolutionParameters;
 import org.gradle.api.internal.artifacts.ivyservice.dependencysubstitution.DependencySubstitutionApplicator;
 import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.strategy.VersionComparator;
 import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.strategy.VersionParser;
 import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.strategy.VersionSelectorScheme;
-import org.gradle.api.internal.artifacts.ivyservice.moduleconverter.RootComponentMetadataBuilder;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.ModuleConflictResolver;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.excludes.ModuleExclusions;
-import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.DependencyGraphSelector;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.DependencyGraphVisitor;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.conflicts.CapabilitiesConflictHandler;
+import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.conflicts.Conflict;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.conflicts.DefaultCapabilitiesConflictHandler;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.conflicts.DefaultConflictHandler;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.conflicts.ModuleConflictHandler;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.conflicts.PotentialConflict;
+import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.conflicts.VersionConflictException;
 import org.gradle.api.internal.attributes.AttributeDesugaring;
-import org.gradle.api.internal.attributes.AttributesSchemaInternal;
-import org.gradle.api.internal.attributes.ImmutableAttributesFactory;
+import org.gradle.api.internal.attributes.AttributeSchemaServices;
+import org.gradle.api.internal.attributes.AttributesFactory;
+import org.gradle.api.internal.attributes.immutable.ImmutableAttributesSchema;
+import org.gradle.api.internal.attributes.matching.AttributeMatcher;
+import org.gradle.api.internal.capabilities.CapabilityInternal;
 import org.gradle.api.specs.Spec;
-import org.gradle.internal.component.model.AttributeMatcher;
+import org.gradle.internal.component.local.model.LocalComponentGraphResolveState;
+import org.gradle.internal.component.local.model.LocalVariantGraphResolveState;
 import org.gradle.internal.component.model.ComponentGraphResolveMetadata;
 import org.gradle.internal.component.model.ComponentIdGenerator;
 import org.gradle.internal.component.model.DependencyMetadata;
@@ -53,12 +56,13 @@ import org.gradle.internal.component.model.GraphVariantSelector;
 import org.gradle.internal.component.model.VariantGraphResolveMetadata;
 import org.gradle.internal.component.resolution.failure.ResolutionFailureHandler;
 import org.gradle.internal.component.resolution.failure.exception.AbstractResolutionFailureException;
-import org.gradle.internal.deprecation.DeprecationLogger;
 import org.gradle.internal.operations.BuildOperationConstraint;
 import org.gradle.internal.operations.BuildOperationExecutor;
 import org.gradle.internal.resolve.ModuleVersionResolveException;
 import org.gradle.internal.resolve.resolver.ComponentMetaDataResolver;
 import org.gradle.internal.resolve.resolver.DependencyToComponentIdResolver;
+import org.gradle.internal.service.scopes.Scope;
+import org.gradle.internal.service.scopes.ServiceScope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,8 +75,10 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
+@ServiceScope(Scope.Project.class)
 public class DependencyGraphBuilder {
 
     static final Spec<EdgeState> ENDORSE_STRICT_VERSIONS_DEPENDENCY_SPEC = dependencyState -> dependencyState.getDependencyState().getDependency().isEndorsingStrictVersions();
@@ -81,7 +87,8 @@ public class DependencyGraphBuilder {
     private static final Logger LOGGER = LoggerFactory.getLogger(DependencyGraphBuilder.class);
 
     private final ModuleExclusions moduleExclusions;
-    private final ImmutableAttributesFactory attributesFactory;
+    private final AttributesFactory attributesFactory;
+    private final AttributeSchemaServices attributeSchemaServices;
     private final AttributeDesugaring attributeDesugaring;
     private final VersionSelectorScheme versionSelectorScheme;
     private final VersionComparator versionComparator;
@@ -93,7 +100,8 @@ public class DependencyGraphBuilder {
     @Inject
     public DependencyGraphBuilder(
         ModuleExclusions moduleExclusions,
-        ImmutableAttributesFactory attributesFactory,
+        AttributesFactory attributesFactory,
+        AttributeSchemaServices attributeSchemaServices,
         AttributeDesugaring attributeDesugaring,
         VersionSelectorScheme versionSelectorScheme,
         VersionComparator versionComparator,
@@ -104,6 +112,7 @@ public class DependencyGraphBuilder {
     ) {
         this.moduleExclusions = moduleExclusions;
         this.attributesFactory = attributesFactory;
+        this.attributeSchemaServices = attributeSchemaServices;
         this.attributeDesugaring = attributeDesugaring;
         this.versionSelectorScheme = versionSelectorScheme;
         this.versionComparator = versionComparator;
@@ -114,37 +123,37 @@ public class DependencyGraphBuilder {
     }
 
     public void resolve(
-        RootComponentMetadataBuilder.RootComponentState rootComponent,
+        LocalComponentGraphResolveState rootComponent,
+        LocalVariantGraphResolveState rootVariant,
         List<? extends DependencyMetadata> syntheticDependencies,
         Spec<? super DependencyMetadata> edgeFilter,
-        AttributesSchemaInternal consumerSchema,
         ComponentSelectorConverter componentSelectorConverter,
         DependencyToComponentIdResolver componentIdResolver,
         ComponentMetaDataResolver componentMetaDataResolver,
-        ModuleReplacementsData moduleReplacements,
+        ImmutableModuleReplacements moduleReplacements,
         DependencySubstitutionApplicator dependencySubstitutionApplicator,
         ModuleConflictResolver<ComponentState> moduleConflictResolver,
         List<CapabilitiesConflictHandler.Resolver> capabilityConflictResolvers,
         ConflictResolution conflictResolution,
         boolean failingOnDynamicVersions,
         boolean failingOnChangingVersions,
+        ResolutionParameters.FailureResolutions failureResolutions,
         DependencyGraphVisitor modelVisitor
     ) {
-        ResolutionConflictTracker conflictTracker = new ResolutionConflictTracker(
-            new DefaultConflictHandler(moduleConflictResolver, moduleReplacements),
-            new DefaultCapabilitiesConflictHandler(capabilityConflictResolvers)
-        );
+        ModuleConflictHandler moduleConflictHandler = new DefaultConflictHandler(moduleConflictResolver, moduleReplacements);
+        CapabilitiesConflictHandler capabilitiesConflictHandler = new DefaultCapabilitiesConflictHandler(capabilityConflictResolvers);
 
         ResolveState resolveState = new ResolveState(
             idGenerator,
             rootComponent,
+            rootVariant,
             componentIdResolver,
             componentMetaDataResolver,
             edgeFilter,
-            consumerSchema,
             moduleExclusions,
             componentSelectorConverter,
             attributesFactory,
+            attributeSchemaServices,
             attributeDesugaring,
             dependencySubstitutionApplicator,
             versionSelectorScheme,
@@ -152,13 +161,14 @@ public class DependencyGraphBuilder {
             versionParser,
             conflictResolution,
             syntheticDependencies,
-            conflictTracker,
+            moduleConflictHandler,
+            capabilitiesConflictHandler,
             variantSelector
         );
 
         traverseGraph(resolveState);
 
-        validateGraph(resolveState, failingOnDynamicVersions, failingOnChangingVersions);
+        validateGraph(resolveState, failingOnDynamicVersions, failingOnChangingVersions, conflictResolution, failureResolutions);
 
         assembleResult(resolveState, modelVisitor);
     }
@@ -170,16 +180,27 @@ public class DependencyGraphBuilder {
         resolveState.onMoreSelected(resolveState.getRoot());
         final List<EdgeState> dependencies = new ArrayList<>();
 
-        ModuleConflictHandler moduleConflictHandler = resolveState.getConflictTracker().getModuleConflictHandler();
-        CapabilitiesConflictHandler capabilitiesConflictHandler = resolveState.getConflictTracker().getCapabilitiesConflictHandler();
+        ModuleConflictHandler moduleConflictHandler = resolveState.getModuleConflictHandler();
+        CapabilitiesConflictHandler capabilitiesConflictHandler = resolveState.getCapabilitiesConflictHandler();
 
         while (resolveState.peek() != null || moduleConflictHandler.hasConflicts() || capabilitiesConflictHandler.hasConflicts()) {
             if (resolveState.peek() != null) {
                 final NodeState node = resolveState.pop();
                 LOGGER.debug("Visiting configuration {}.", node);
 
+                // TODO: Why is this not node.isSelected()?
+                // It seems that node.isSelected can return true while component.isSelected() returns false
+                if (!node.getComponent().isSelected()) {
+                    node.cleanupConstraints();
+                    continue;
+                }
+
                 // Register capabilities for this node
-                registerCapabilities(resolveState, node);
+                if (registerCapabilities(resolveState, node)) {
+                    // We have a conflict, so we need to resolve it first, since this node may not win the conflict.
+                    // There is no reason to continue processing this node otherwise.
+                    continue;
+                }
 
                 // Initialize and collect any new outgoing edges of this node
                 dependencies.clear();
@@ -199,11 +220,19 @@ public class DependencyGraphBuilder {
         }
     }
 
-    private static void registerCapabilities(final ResolveState resolveState, final NodeState node) {
-        CapabilitiesConflictHandler capabilitiesConflictHandler = resolveState.getConflictTracker().getCapabilitiesConflictHandler();
-        node.forEachCapability(capabilitiesConflictHandler, new Action<Capability>() {
+    /**
+     * Detect and register capability conflicts for the given node, deselecting the node if
+     * it is involved in a conflict.
+     *
+     * @return true iff a conflict was detected.
+     */
+    private static boolean registerCapabilities(final ResolveState resolveState, final NodeState node) {
+        AtomicBoolean foundConflict = new AtomicBoolean(false);
+        CapabilitiesConflictHandler capabilitiesConflictHandler = resolveState.getCapabilitiesConflictHandler();
+
+        node.forEachCapability(capabilitiesConflictHandler, new Action<CapabilityInternal>() {
             @Override
-            public void execute(Capability capability) {
+            public void execute(CapabilityInternal capability) {
                 // This is a performance optimization. Most modules do not declare capabilities. So, instead of systematically registering
                 // an implicit capability for each module that we see, we only consider modules which _declare_ capabilities. If they do,
                 // then we try to find a module which provides the same capability. It that module has been found, then we register it.
@@ -212,7 +241,7 @@ public class DependencyGraphBuilder {
                 for (ModuleResolveState state : resolveState.getModules()) {
                     if (state.getId().getGroup().equals(capability.getGroup()) && state.getId().getName().equals(capability.getName())) {
                         Collection<ComponentState> versions = state.getVersions();
-                        implicitProvidersForCapability = Lists.newArrayListWithExpectedSize(versions.size());
+                        implicitProvidersForCapability = new ArrayList<>(versions.size());
                         for (ComponentState version : versions) {
                             List<NodeState> nodes = version.getNodes();
                             for (NodeState nodeState : nodes) {
@@ -230,6 +259,7 @@ public class DependencyGraphBuilder {
                 );
                 if (c.conflictExists()) {
                     c.withParticipatingModules(resolveState.getDeselectVersionAction());
+                    foundConflict.set(true);
                 }
             }
 
@@ -237,21 +267,22 @@ public class DependencyGraphBuilder {
                 return nodeState.getMetadata().getCapabilities().asSet().isEmpty();
             }
         });
+        return foundConflict.get();
     }
 
     private boolean resolveEdges(
         final NodeState node,
         final List<EdgeState> dependencies,
-        final Spec<EdgeState> dependencyFilter,
+        final Spec<EdgeState> edgeFilter,
         final boolean recomputeSelectors,
         final ResolveState resolveState
     ) {
         if (dependencies.isEmpty()) {
             return false;
         }
-        if (performSelectionSerially(dependencies, dependencyFilter, resolveState, recomputeSelectors)) {
-            maybeDownloadMetadataInParallel(node, dependencies, dependencyFilter, buildOperationExecutor, resolveState.getComponentMetadataResolver());
-            attachToTargetRevisionsSerially(dependencies, dependencyFilter);
+        if (performSelectionSerially(dependencies, edgeFilter, resolveState, recomputeSelectors)) {
+            maybeDownloadMetadataInParallel(node, dependencies, edgeFilter, buildOperationExecutor, resolveState.getComponentMetadataResolver());
+            attachToTargetRevisionsSerially(dependencies, edgeFilter);
             return true;
         } else {
             return false;
@@ -259,25 +290,27 @@ public class DependencyGraphBuilder {
 
     }
 
-    private static boolean performSelectionSerially(List<EdgeState> dependencies, Spec<EdgeState> dependencyFilter, ResolveState resolveState, boolean recomputeSelectors) {
+    private static boolean performSelectionSerially(List<EdgeState> edges, Spec<EdgeState> edgeFilter, ResolveState resolveState, boolean recomputeSelectors) {
         boolean processed = false;
-        for (EdgeState dependency : dependencies) {
-            if (!dependencyFilter.isSatisfiedBy(dependency)) {
+        for (EdgeState edge : edges) {
+            if (!edgeFilter.isSatisfiedBy(edge)) {
                 continue;
             }
             if (recomputeSelectors) {
-                dependency.computeSelector();
+                edge.computeSelector();
             }
-            SelectorState selector = dependency.getSelector();
+            SelectorState selector = edge.getSelector();
             ModuleResolveState module = selector.getTargetModule();
 
-            if (selector.canResolve() && module.getSelectors().size() > 0) {
+            // TODO: It is odd that we have to check module.getSelectors().size() here.
+            //       We already have a selector, its module should know about it.
+            if (selector.canAffectSelection() && module.getSelectors().size() > 0) {
                 // Have an unprocessed/new selector for this module. Need to re-select the target version (if there are any selectors that can be used).
                 performSelection(resolveState, module);
             }
-            if (dependency.isUsed()) {
+            if (edge.isUsed()) {
                 // Some corner case result in the edge being removed, in that case it needs to be "removed"
-                module.addUnattachedDependency(dependency);
+                module.addUnattachedEdge(edge);
             }
             processed = true;
         }
@@ -294,7 +327,7 @@ public class DependencyGraphBuilder {
         ComponentState currentSelection = module.getSelected();
 
         try {
-            module.maybeUpdateSelection(resolveState.getConflictTracker());
+            module.maybeUpdateSelection();
         } catch (ModuleVersionResolveException e) {
             // Ignore: All selectors failed, and will have failures recorded
             return;
@@ -309,7 +342,7 @@ public class DependencyGraphBuilder {
 
     private static void checkForModuleConflicts(ResolveState resolveState, ModuleResolveState module) {
         // A new module. Check for conflict with capabilities and module replacements.
-        PotentialConflict c = resolveState.getConflictTracker().getModuleConflictHandler().registerCandidate(module);
+        PotentialConflict c = resolveState.getModuleConflictHandler().registerCandidate(module);
         if (c.conflictExists()) {
             // We have a conflict
             LOGGER.debug("Found new conflicting module {}", module);
@@ -324,13 +357,13 @@ public class DependencyGraphBuilder {
      * Prepares the resolution of edges, either serially or concurrently.
      * It uses a simple heuristic to determine if we should perform concurrent resolution, based on the number of edges, and whether they have unresolved metadata.
      */
-    private static void maybeDownloadMetadataInParallel(NodeState node, List<EdgeState> dependencies, Spec<EdgeState> dependencyFilter, BuildOperationExecutor buildOperationExecutor, ComponentMetaDataResolver componentMetaDataResolver) {
+    private static void maybeDownloadMetadataInParallel(NodeState node, List<EdgeState> edges, Spec<EdgeState> edgeFilter, BuildOperationExecutor buildOperationExecutor, ComponentMetaDataResolver componentMetaDataResolver) {
         List<ComponentState> requiringDownload = null;
-        for (EdgeState dependency : dependencies) {
-            if (!dependencyFilter.isSatisfiedBy(dependency)) {
+        for (EdgeState edge : edges) {
+            if (!edgeFilter.isSatisfiedBy(edge)) {
                 continue;
             }
-            ComponentState targetComponent = dependency.getTargetComponent();
+            ComponentState targetComponent = edge.getTargetComponent();
             if (targetComponent != null && targetComponent.isSelected() && !targetComponent.alreadyResolved()) {
                 if (!componentMetaDataResolver.isFetchingMetadataCheap(targetComponent.getComponentId())) {
                     // Avoid initializing the list if there are no components requiring download (a common case)
@@ -353,19 +386,25 @@ public class DependencyGraphBuilder {
         }
     }
 
-    private static void attachToTargetRevisionsSerially(List<EdgeState> dependencies, Spec<EdgeState> dependencyFilter) {
+    private static void attachToTargetRevisionsSerially(List<EdgeState> edges, Spec<EdgeState> edgeFilter) {
         // the following only needs to be done serially to preserve ordering of dependencies in the graph: we have visited the edges
         // but we still didn't add the result to the queue. Doing it from resolve threads would result in non-reproducible graphs, where
         // edges could be added in different order. To avoid this, the addition of new edges is done serially.
-        for (EdgeState dependency : dependencies) {
-            if (dependencyFilter.isSatisfiedBy(dependency)) {
-                dependency.attachToTargetConfigurations();
+        for (EdgeState edge : edges) {
+            if (edgeFilter.isSatisfiedBy(edge)) {
+                edge.attachToTargetNodes();
             }
         }
     }
 
-    private static void validateGraph(ResolveState resolveState, boolean denyDynamicSelectors, boolean denyChangingModules) {
-        AttributesSchemaInternal consumerSchema = resolveState.getAttributesSchema();
+    private static void validateGraph(
+        ResolveState resolveState,
+        boolean denyDynamicSelectors,
+        boolean denyChangingModules,
+        ConflictResolution conflictResolution,
+        ResolutionParameters.FailureResolutions failureResolutions
+    ) {
+        ImmutableAttributesSchema consumerSchema = resolveState.getConsumerSchema();
         for (ModuleResolveState module : resolveState.getModules()) {
             ComponentState selected = module.getSelected();
             if (selected != null) {
@@ -375,12 +414,12 @@ public class DependencyGraphBuilder {
                     attachFailureToEdges(error, module.getIncomingEdges());
                     // We need to attach failures on unattached dependencies too, in case a node wasn't selected
                     // at all, but we still want to see an error message for it.
-                    attachFailureToEdges(error, module.getUnattachedDependencies());
+                    attachFailureToEdges(error, module.getUnattachedEdges());
                 } else {
                     if (module.isVirtualPlatform()) {
                         attachMultipleForceOnPlatformFailureToEdges(module);
                     } else if (selected.hasMoreThanOneSelectedNodeUsingVariantAwareResolution()) {
-                        validateMultipleNodeSelection(consumerSchema, module, selected, resolutionFailureHandler);
+                        validateMultipleNodeSelection(consumerSchema, module, selected, resolutionFailureHandler, resolveState.getAttributeSchemaServices());
                     }
                     if (denyDynamicSelectors) {
                         validateDynamicSelectors(selected);
@@ -388,26 +427,13 @@ public class DependencyGraphBuilder {
                     if (denyChangingModules) {
                         validateChangingVersions(selected);
                     }
+                    if (conflictResolution == ConflictResolution.strict) {
+                        validateVersionConflicts(selected, failureResolutions);
+                    }
                 }
             } else if (module.isVirtualPlatform()) {
                 attachMultipleForceOnPlatformFailureToEdges(module);
             }
-        }
-
-        if (resolveState.getRoot().wasIncomingEdgeAdded()) {
-            String rootNodeName = resolveState.getRoot().getMetadata().getName();
-            DeprecationLogger.deprecate(
-                    String.format(
-                        "While resolving configuration '%s', it was also selected as a variant. Configurations should not act as both a resolution root and a variant simultaneously. " +
-                            "Depending on the resolved configuration in this manner",
-                        rootNodeName
-                    ))
-                .withProblemIdDisplayName("Configurations should not act as both a resolution root and a variant simultaneously.")
-                .withProblemId("configurations-acting-as-both-root-and-variant")
-                .withAdvice("Be sure to mark configurations meant for resolution as canBeConsumed=false or use the 'resolvable(String)' configuration factory method to create them.")
-                .willBecomeAnErrorInGradle9()
-                .withUpgradeGuideSection(8, "depending_on_root_configuration")
-                .nagUser();
         }
     }
 
@@ -483,10 +509,51 @@ public class DependencyGraphBuilder {
     }
 
     /**
+     * Verify the given component was not selected via version conflict resolution.
+     * In other words, ensure only one version of this component was requested.
+     */
+    private static void validateVersionConflicts(
+        ComponentState selected,
+        ResolutionParameters.FailureResolutions failureResolutions
+    ) {
+        if (!selected.getSelectionReason().isConflictResolution()) {
+            return;
+        }
+
+        // This component was selected due to version conflict resolution.
+        // Fail all incoming edges.
+
+        ImmutableList<Conflict.Participant> participants = selected.getModule().getAllVersions().stream()
+            .map(component -> new Conflict.Participant(component.getId().getVersion(), component.getComponentId()))
+            .collect(ImmutableList.toImmutableList());
+
+        Conflict conflict = new Conflict(
+            participants,
+            selected.getModuleVersion().getModule(),
+            selected.getSelectionReason()
+        );
+
+        List<String> resolutions = failureResolutions.forVersionConflict(conflict);
+        VersionConflictException failure = new VersionConflictException(conflict, resolutions);
+
+        for (NodeState node : selected.getNodes()) {
+            for (EdgeState incomingEdge : node.getIncomingEdges()) {
+                incomingEdge.failWith(failure);
+            }
+        }
+    }
+
+    /**
      * Validates that all selected nodes of a single component have compatible attributes,
      * when using variant aware resolution.
      */
-    private static void validateMultipleNodeSelection(AttributesSchemaInternal consumerSchema, ModuleResolveState module, ComponentState selected, ResolutionFailureHandler resolutionFailureHandler) {
+    private static void validateMultipleNodeSelection(
+        ImmutableAttributesSchema consumerSchema,
+        ModuleResolveState module,
+        ComponentState selected,
+        ResolutionFailureHandler resolutionFailureHandler,
+        AttributeSchemaServices attributeSchemaServices
+    ) {
         Set<NodeState> selectedNodes = selected.getNodes().stream()
             .filter(n -> n.isSelected() && !n.isAttachedToVirtualPlatform() && !n.hasShadowedCapability())
             .collect(Collectors.toSet());
@@ -498,7 +565,7 @@ public class DependencyGraphBuilder {
         Set<Set<NodeState>> combinations = Sets.combinations(selectedNodes, 2);
         Set<NodeState> incompatibleNodes = new HashSet<>();
 
-        AttributeMatcher matcher = consumerSchema.withProducer(selected.getMetadata().getAttributesSchema());
+        AttributeMatcher matcher = attributeSchemaServices.getMatcher(consumerSchema, selected.getMetadata().getAttributesSchema());
         for (Set<NodeState> combination : combinations) {
             Iterator<NodeState> it = combination.iterator();
             NodeState first = it.next();
@@ -514,7 +581,7 @@ public class DependencyGraphBuilder {
             Set<VariantGraphResolveMetadata> incompatibleNodeMetadatas = incompatibleNodes.stream()
                 .map(NodeState::getMetadata)
                 .collect(Collectors.toSet());
-            AbstractResolutionFailureException variantsSelectionException = resolutionFailureHandler.incompatibleMultipleNodesValidationFailure(consumerSchema, selected.getMetadata(), incompatibleNodeMetadatas);
+            AbstractResolutionFailureException variantsSelectionException = resolutionFailureHandler.incompatibleMultipleNodesValidationFailure(matcher, selected.getMetadata(), incompatibleNodeMetadatas);
             for (EdgeState edge : module.getIncomingEdges()) {
                 edge.failWith(variantsSelectionException);
             }
@@ -576,11 +643,6 @@ public class DependencyGraphBuilder {
      */
     private static void assembleResult(ResolveState resolveState, DependencyGraphVisitor visitor) {
         visitor.start(resolveState.getRoot());
-
-        // Visit the selectors
-        for (DependencyGraphSelector selector : resolveState.getSelectors()) {
-            visitor.visitSelector(selector);
-        }
 
         // Visit the nodes prior to visiting the edges
         for (NodeState nodeState : resolveState.getNodes()) {

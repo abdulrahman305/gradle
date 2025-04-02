@@ -22,15 +22,19 @@ description = "Declarations to define JVM toolchains shared between launcher and
 
 dependencies {
     api(libs.inject)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
     api(projects.stdlibJavaExtensions)
     api(projects.baseServices)
     api(projects.coreApi)
     api(projects.fileCollections)
+    api(projects.fileOperations)
     api(projects.jvmServices)
     api(projects.persistentCache)
     api(projects.core)
+    api(projects.native)
+    api(projects.resources)
+    api(projects.modelCore)
 
     implementation(projects.functional)
 
@@ -38,19 +42,22 @@ dependencies {
     implementation(libs.guava)
     implementation(libs.slf4jApi)
     implementation(libs.commonsIo)
-    implementation(libs.commonsLang)
 
     testImplementation(testFixtures(projects.core))
+    testImplementation(projects.dependencyManagement)
 
     testRuntimeOnly(projects.distributionsJvm) {
         because("ProjectBuilder tests load services from a Gradle distribution.  Toolchain usage requires JVM distribution.")
     }
+
+    testFixturesImplementation(projects.internalIntegTesting)
+    testFixturesImplementation(libs.commonsCompress)
 }
 
 packageCycles {
-    // Needed for the factory methods in the interface
-    excludePatterns.add("org/gradle/jvm/toolchain/JavaLanguageVersion**")
-    excludePatterns.add("org/gradle/jvm/toolchain/**")
+    // Needed for the factory methods in the interface since the implementation is in an internal package
+    // which in turn references the interface.
+    excludePatterns.add("org/gradle/jvm/toolchain/JavaToolchainDownload**")
 }
 
 integTest.usesJavadocCodeSnippets.set(true)

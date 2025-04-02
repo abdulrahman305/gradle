@@ -42,7 +42,6 @@ class ProjectBuilderTest extends Specification {
     public final Resources resources = new Resources()
 
     def "can create a root project"() {
-
         when:
         def project = ProjectBuilder.builder().build()
 
@@ -59,7 +58,6 @@ class ProjectBuilderTest extends Specification {
     }
 
     def "can create a child project"() {
-
         when:
         def root = ProjectBuilder.builder().build()
         def child = ProjectBuilder.builder().withParent(root).build()

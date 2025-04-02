@@ -51,6 +51,7 @@ import org.gradle.internal.instrumentation.agent.AgentInitializer;
 import org.gradle.internal.instrumentation.agent.AgentUtils;
 import org.gradle.internal.invocation.BuildAction;
 import org.gradle.internal.jvm.Jvm;
+import org.gradle.internal.logging.LoggingManagerFactory;
 import org.gradle.internal.logging.LoggingManagerInternal;
 import org.gradle.internal.nativeintegration.ProcessEnvironment;
 import org.gradle.internal.os.OperatingSystem;
@@ -62,6 +63,7 @@ import org.gradle.launcher.exec.BuildActionExecutor;
 import org.gradle.launcher.exec.BuildActionParameters;
 import org.gradle.launcher.exec.BuildActionResult;
 import org.gradle.launcher.exec.DefaultBuildActionParameters;
+import org.gradle.process.internal.BaseExecHandleBuilder;
 import org.gradle.process.internal.JavaExecHandleBuilder;
 import org.gradle.test.fixtures.file.TestDirectoryProvider;
 import org.gradle.test.fixtures.file.TestFile;
@@ -121,7 +123,7 @@ public class InProcessGradleExecuter extends DaemonGradleExecuter {
     public static final TestFile COMMON_TMP = new TestFile(new File("build/tmp"));
 
     static {
-        LoggingManagerInternal loggingManager = GLOBAL_SERVICES.getFactory(LoggingManagerInternal.class).create();
+        LoggingManagerInternal loggingManager = GLOBAL_SERVICES.get(LoggingManagerFactory.class).createLoggingManager();
         loggingManager.start();
 
         GLOBAL_SERVICES.get(AgentInitializer.class).maybeConfigureInstrumentationAgent();
@@ -246,12 +248,12 @@ public class InProcessGradleExecuter extends DaemonGradleExecuter {
     }
 
     @Override
-    protected Factory<JavaExecHandleBuilder> getExecHandleFactory() {
+    protected Factory<BaseExecHandleBuilder> getExecHandleFactory() {
         return () -> {
             NativeServicesTestFixture.initialize();
             GradleInvocation invocation = buildInvocation();
             JavaExecHandleBuilder builder = TestFiles.execFactory().newJavaExec();
-            builder.workingDir(getWorkingDir());
+            builder.setWorkingDir(getWorkingDir());
             builder.setExecutable(new File(getJavaHomeLocation(), "bin/java"));
             builder.classpath(getExecHandleFactoryClasspath());
             builder.jvmArgs(invocation.launcherJvmArgs);
@@ -349,7 +351,7 @@ public class InProcessGradleExecuter extends DaemonGradleExecuter {
     }
 
     private LoggingManagerInternal createLoggingManager(StartParameter startParameter, OutputStream outputStream, OutputStream errorStream) {
-        LoggingManagerInternal loggingManager = GLOBAL_SERVICES.getFactory(LoggingManagerInternal.class).create();
+        LoggingManagerInternal loggingManager = GLOBAL_SERVICES.get(LoggingManagerFactory.class).createLoggingManager();
         loggingManager.captureSystemSources();
 
         ConsoleOutput consoleOutput = startParameter.getConsoleOutput();
@@ -454,6 +456,11 @@ public class InProcessGradleExecuter extends DaemonGradleExecuter {
     public GradleExecuter withTestConsoleAttached(ConsoleAttachment consoleAttachment) {
         this.consoleAttachment = consoleAttachment;
         return this;
+    }
+
+    @Override
+    protected boolean isDebuggerAttached() {
+        return false; // no need for remote debugging for embedded executor
     }
 
     private static class BuildListenerImpl implements TaskExecutionListener, InternalListener {

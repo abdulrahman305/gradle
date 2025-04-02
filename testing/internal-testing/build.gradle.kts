@@ -21,12 +21,13 @@ dependencies {
     api(libs.groovy)
     api(libs.groovyXml)
     api(libs.hamcrest)
-    api(libs.hamcrestCore)
+    api(libs.jsr305)
     api(libs.junit)
     api(libs.junit5JupiterApi)
     api(libs.spock)
     api(libs.spockJUnit4)
 
+    implementation(projects.baseAsm)
     implementation(projects.buildOperations)
     implementation(projects.functional)
     implementation(projects.native)
@@ -39,9 +40,12 @@ dependencies {
     implementation(libs.commonsLang)
     implementation(libs.guava)
     implementation(libs.jsoup)
-    implementation(libs.jsr305)
+    implementation(libs.kotlinCompilerEmbeddable)
     implementation(libs.slf4jApi)
     implementation(libs.testcontainers)
+    implementation(libs.dockerJavaApi)
+
+    compileOnly(libs.kotlinStdlib)
 
     runtimeOnly(libs.groovyJson)
     runtimeOnly(libs.bytebuddy)

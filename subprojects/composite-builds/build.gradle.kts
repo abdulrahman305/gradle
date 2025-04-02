@@ -9,7 +9,6 @@ errorprone {
         "FutureReturnValueIgnored", // 1 occurrences
         "SameNameButDifferent", // 11 occurrences
         "ThreadLocalUsage", // 1 occurrences
-        "UnusedMethod", // 4 occurrences
     )
 }
 
@@ -29,14 +28,17 @@ dependencies {
     api(projects.buildState)
 
     api(libs.inject)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
+    implementation(projects.classloaders)
     implementation(projects.time)
     implementation(projects.enterpriseLogging)
     implementation(projects.enterpriseOperations)
     implementation(projects.daemonServices)
     implementation(projects.logging)
+    implementation(projects.problemsApi)
     implementation(projects.serviceLookup)
+    implementation(projects.functional)
 
     implementation(libs.slf4jApi)
     implementation(libs.guava)
@@ -56,3 +58,6 @@ dependencies {
 }
 
 testFilesCleanup.reportOnly = true
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

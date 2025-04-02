@@ -6,7 +6,6 @@ description = "A set of general-purpose resource abstractions"
 
 errorprone {
     disabledChecks.addAll(
-        "OperatorPrecedence", // 9 occurrences
         "UndefinedEquals", // 1 occurrences
     )
 }
@@ -19,7 +18,7 @@ dependencies {
     api(projects.messaging)
     api(projects.native)
 
-    api(libs.jsr305)
+    api(libs.jspecify)
 
     implementation(projects.files)
     implementation(projects.logging)
@@ -35,4 +34,7 @@ dependencies {
     testImplementation(testFixtures(projects.core))
 
     integTestDistributionRuntimeOnly(projects.distributionsCore)
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

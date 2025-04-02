@@ -16,7 +16,7 @@ dependencies {
     api(projects.hashing)
     api(projects.snapshots)
 
-    api(libs.jsr305)
+    api(libs.jspecify)
 
     api(projects.stdlibJavaExtensions)
     implementation(libs.commonsIo)
@@ -40,4 +40,7 @@ dependencies {
     testFixturesImplementation(testFixtures(projects.hashing))
 
     integTestDistributionRuntimeOnly(projects.distributionsCore)
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

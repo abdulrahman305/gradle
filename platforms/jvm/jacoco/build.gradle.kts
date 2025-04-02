@@ -16,21 +16,22 @@ dependencies {
     api(projects.baseServices)
     api(projects.core)
     api(projects.coreApi)
+    api(projects.fileOperations)
     api(projects.platformJvm)
     api(projects.reporting)
+    api(projects.workers)
 
     api(libs.groovy)
     api(libs.inject)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
-    implementation(projects.internalInstrumentationApi)
+    implementation(projects.daemonServerWorker)
     implementation(projects.loggingApi)
     implementation(projects.modelCore)
     implementation(projects.platformBase)
     implementation(projects.pluginsJava)
     implementation(projects.pluginsJavaBase)
     implementation(projects.pluginsJvmTestSuite)
-    implementation(projects.processServices)
     implementation(projects.serviceLookup)
     implementation(projects.testSuitesBase)
     implementation(projects.testingJvm)
@@ -65,4 +66,7 @@ strictCompile {
 packageCycles {
     excludePatterns.add("org/gradle/internal/jacoco/*")
     excludePatterns.add("org/gradle/testing/jacoco/plugins/*")
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

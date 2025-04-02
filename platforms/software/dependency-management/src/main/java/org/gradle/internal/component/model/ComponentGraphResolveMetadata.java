@@ -18,10 +18,10 @@ package org.gradle.internal.component.model;
 
 import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
-import org.gradle.api.internal.attributes.AttributesSchemaInternal;
+import org.gradle.api.internal.attributes.immutable.ImmutableAttributesSchema;
 import org.gradle.internal.component.external.model.VirtualComponentIdentifier;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -42,7 +42,7 @@ public interface ComponentGraphResolveMetadata {
 
     ModuleVersionIdentifier getModuleVersionId();
 
-    AttributesSchemaInternal getAttributesSchema();
+    ImmutableAttributesSchema getAttributesSchema();
 
     boolean isChanging();
 

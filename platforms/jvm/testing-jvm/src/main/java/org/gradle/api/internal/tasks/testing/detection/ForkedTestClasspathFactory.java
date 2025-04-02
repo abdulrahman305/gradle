@@ -162,6 +162,7 @@ public class ForkedTestClasspathFactory {
      */
     private ImmutableList<URL> withImplementation(List<URL> additionalImplementationClasspath) {
         return ImmutableList.copyOf(CollectionUtils.flattenCollections(URL.class,
+            moduleRegistry.getModule("gradle-classloaders").getImplementationClasspath().getAsURLs(),
             moduleRegistry.getModule("gradle-worker-main").getImplementationClasspath().getAsURLs(),
             moduleRegistry.getModule("gradle-logging").getImplementationClasspath().getAsURLs(),
             moduleRegistry.getModule("gradle-logging-api").getImplementationClasspath().getAsURLs(),
@@ -169,6 +170,7 @@ public class ForkedTestClasspathFactory {
             moduleRegistry.getModule("gradle-files").getImplementationClasspath().getAsURLs(),
             moduleRegistry.getModule("gradle-file-temp").getImplementationClasspath().getAsURLs(),
             moduleRegistry.getModule("gradle-hashing").getImplementationClasspath().getAsURLs(),
+            moduleRegistry.getModule("gradle-base-asm").getImplementationClasspath().getAsURLs(),
             moduleRegistry.getModule("gradle-base-services").getImplementationClasspath().getAsURLs(),
             moduleRegistry.getModule("gradle-stdlib-java-extensions").getImplementationClasspath().getAsURLs(),
             moduleRegistry.getModule("gradle-enterprise-logging").getImplementationClasspath().getAsURLs(),
@@ -186,6 +188,7 @@ public class ForkedTestClasspathFactory {
             moduleRegistry.getModule("gradle-testing-base-infrastructure").getImplementationClasspath().getAsURLs(),
             moduleRegistry.getModule("gradle-testing-jvm-infrastructure").getImplementationClasspath().getAsURLs(),
             moduleRegistry.getModule("gradle-testing-junit-platform").getImplementationClasspath().getAsURLs(),
+            moduleRegistry.getModule("gradle-process-memory-services").getImplementationClasspath().getAsURLs(),
             moduleRegistry.getModule("gradle-process-services").getImplementationClasspath().getAsURLs(),
             moduleRegistry.getModule("gradle-build-operations").getImplementationClasspath().getAsURLs(),
             moduleRegistry.getModule("gradle-problems-api").getImplementationClasspath().getAsURLs(),

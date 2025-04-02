@@ -41,8 +41,7 @@ import org.gradle.internal.Cast;
 import org.gradle.internal.metaobject.MethodAccess;
 import org.gradle.internal.metaobject.MethodMixIn;
 import org.gradle.util.internal.ConfigureUtil;
-
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 public class DefaultDependencyConstraintHandler implements DependencyConstraintHandler, MethodMixIn {
     private final static DependencyConstraint DUMMY_CONSTRAINT = new DependencyConstraint() {
@@ -133,6 +132,26 @@ public class DefaultDependencyConstraintHandler implements DependencyConstraintH
     @Override
     public DependencyConstraint add(String configurationName, Object dependencyNotation, Action<? super DependencyConstraint> configureAction) {
         return doAdd(configurationContainer.getByName(configurationName), dependencyNotation, configureAction);
+    }
+
+    @Override
+    public <T> void addProvider(String configurationName, Provider<T> dependencyNotation) {
+        doAddProvider(configurationContainer.getByName(configurationName), dependencyNotation, null);
+    }
+
+    @Override
+    public <T> void addProvider(String configurationName, Provider<T> dependencyNotation, Action<? super DependencyConstraint> configureAction) {
+        doAddProvider(configurationContainer.getByName(configurationName), dependencyNotation, configureAction);
+    }
+
+    @Override
+    public <T> void addProviderConvertible(String configurationName, ProviderConvertible<T> dependencyNotation) {
+        doAddProvider(configurationContainer.getByName(configurationName), dependencyNotation.asProvider(), null);
+    }
+
+    @Override
+    public <T> void addProviderConvertible(String configurationName, ProviderConvertible<T> dependencyNotation, Action<? super DependencyConstraint> configureAction) {
+        doAddProvider(configurationContainer.getByName(configurationName), dependencyNotation.asProvider(), configureAction);
     }
 
     @Override

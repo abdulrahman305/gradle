@@ -16,6 +16,7 @@
 
 package org.gradle.internal.declarativedsl.dom
 
+import org.gradle.internal.declarativedsl.dom.DeclarativeDocument.DocumentNode.PropertyNode.PropertyAugmentation.Plus
 import org.gradle.internal.declarativedsl.language.SourceData
 
 
@@ -23,9 +24,10 @@ internal
 data class DefaultPropertyNode(
     override val name: String,
     override val sourceData: SourceData,
-    override val value: DeclarativeDocument.ValueNode
+    override val value: DeclarativeDocument.ValueNode,
+    override val augmentation: DeclarativeDocument.DocumentNode.PropertyNode.PropertyAugmentation
 ) : DeclarativeDocument.DocumentNode.PropertyNode {
-    override fun toString(): String = "property($name, $value)"
+    override fun toString() = "property($name, ${if (augmentation == Plus) "+= " else ""}$value)"
 }
 
 
@@ -36,7 +38,7 @@ data class DefaultElementNode(
     override val elementValues: List<DeclarativeDocument.ValueNode>,
     override val content: List<DeclarativeDocument.DocumentNode>,
 ) : DeclarativeDocument.DocumentNode.ElementNode {
-    override fun toString(): String = "element($name, [${elementValues.joinToString()}], content.size = ${content.size})"
+    override fun toString() = "element($name, [${elementValues.joinToString()}], content.size = ${content.size})"
 }
 
 
@@ -45,7 +47,7 @@ data class DefaultErrorNode(
     override val sourceData: SourceData,
     override val errors: Collection<DocumentError>
 ) : DeclarativeDocument.DocumentNode.ErrorNode {
-    override fun toString(): String = "error(${errors.joinToString()})"
+    override fun toString() = "error(${errors.joinToString()})"
 }
 
 
@@ -54,7 +56,16 @@ data class DefaultLiteralNode(
     override val value: Any,
     override val sourceData: SourceData
 ) : DeclarativeDocument.ValueNode.LiteralValueNode {
-    override fun toString(): String = "literal($value)"
+    override fun toString() = "literal($value)"
+}
+
+
+internal
+data class DefaultNamedReferenceNode(
+    override val referenceName: String,
+    override val sourceData: SourceData
+) : DeclarativeDocument.ValueNode.NamedReferenceNode {
+    override fun toString() = "namedReference($referenceName)"
 }
 
 
@@ -64,5 +75,5 @@ data class DefaultValueFactoryNode(
     override val sourceData: SourceData,
     override val values: List<DeclarativeDocument.ValueNode>
 ) : DeclarativeDocument.ValueNode.ValueFactoryNode {
-    override fun toString(): String = "valueFactory($factoryName, [${values.joinToString()}])"
+    override fun toString() = "valueFactory($factoryName, [${values.joinToString()}])"
 }

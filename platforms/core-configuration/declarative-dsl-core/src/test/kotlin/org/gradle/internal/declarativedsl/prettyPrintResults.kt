@@ -17,6 +17,7 @@
 package org.gradle.internal.declarativedsl
 
 import org.gradle.internal.declarativedsl.language.Assignment
+import org.gradle.internal.declarativedsl.language.AugmentingAssignment
 import org.gradle.internal.declarativedsl.language.Block
 import org.gradle.internal.declarativedsl.language.Element
 import org.gradle.internal.declarativedsl.language.ErroneousStatement
@@ -31,7 +32,7 @@ import org.gradle.internal.declarativedsl.language.LocalValue
 import org.gradle.internal.declarativedsl.language.MultipleFailuresResult
 import org.gradle.internal.declarativedsl.language.Null
 import org.gradle.internal.declarativedsl.language.ParsingError
-import org.gradle.internal.declarativedsl.language.PropertyAccess
+import org.gradle.internal.declarativedsl.language.NamedReference
 import org.gradle.internal.declarativedsl.language.SourceData
 import org.gradle.internal.declarativedsl.language.This
 import org.gradle.internal.declarativedsl.language.UnsupportedConstruct
@@ -138,6 +139,17 @@ fun prettyPrintLanguageTree(languageTreeElement: LanguageTreeElement): String {
                 appendLine()
                 appendIndented(")")
             }
+            is AugmentingAssignment -> {
+                append("AugmentingAssignment [${source()}] (\n")
+                appendNextIndented("lhs = ")
+                recurseDeeper(current.lhs)
+                appendLine()
+                appendNextIndented("rhs = ")
+                recurseDeeper(current.rhs)
+                appendLine()
+                appendNextIndented("operator = ${current.augmentationKind.operatorToken}")
+                appendIndented(")")
+            }
 
             is FunctionCall -> {
                 append("FunctionCall [${source()}] (\n")
@@ -178,8 +190,8 @@ fun prettyPrintLanguageTree(languageTreeElement: LanguageTreeElement): String {
             }
 
             is Null -> append("Null")
-            is PropertyAccess -> {
-                append("PropertyAccess [${source()}] (\n")
+            is NamedReference -> {
+                append("NamedReference [${source()}] (\n")
                 current.receiver?.let { receiver ->
                     appendNextIndented("receiver = ")
                     recurseDeeper(receiver)
@@ -238,6 +250,8 @@ fun prettyPrintLanguageTree(languageTreeElement: LanguageTreeElement): String {
                 appendLine()
                 appendIndented(")")
             }
+
+            is FunctionArgument.GroupedVarargs -> error("should not appear in the sources")
         }
     }
 

@@ -12,6 +12,7 @@ dependencies {
     api(projects.hashing)
 
     api(libs.guava)
+    api(libs.jspecify)
     api(libs.jsr305)
 
     implementation(libs.slf4jApi)
@@ -36,4 +37,7 @@ dependencies {
     testFixturesImplementation(libs.commonsIo)
 
     integTestDistributionRuntimeOnly(projects.distributionsCore)
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

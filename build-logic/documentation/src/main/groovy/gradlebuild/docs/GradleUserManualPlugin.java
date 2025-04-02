@@ -149,6 +149,7 @@ public class GradleUserManualPlugin implements Plugin<Project> {
             attributes.put("doctype", "book");
             attributes.put("imagesdir", "img");
             attributes.put("nofooter", true);
+            attributes.put("javadocPath", "../javadoc");
             attributes.put("sectanchors", true);
             attributes.put("sectlinks", true);
             attributes.put("linkattrs", true);
@@ -333,9 +334,12 @@ public class GradleUserManualPlugin implements Plugin<Project> {
     private void checkXrefLinksInUserManualAreValid(ProjectLayout layout, TaskContainer tasks, GradleDocumentationExtension extension) {
         TaskProvider<FindBrokenInternalLinks> checkDeadInternalLinks = tasks.register("checkDeadInternalLinks", FindBrokenInternalLinks.class, task -> {
             task.getReportFile().convention(layout.getBuildDirectory().file("reports/dead-internal-links.txt"));
-            task.getDocumentationRoot().convention(extension.getUserManual().getStagedDocumentation());
+            task.getDocumentationRoot().convention(extension.getUserManual().getStagedDocumentation()); // working/usermanual/raw/
             task.getJavadocRoot().convention(layout.getBuildDirectory().dir("javadoc"));
+            task.getReleaseNotesFile().convention(layout.getProjectDirectory().file("src/docs/release/notes.md"));
+            task.getSamplesRoot().convention(layout.getBuildDirectory().dir("working/samples/docs"));
             task.dependsOn(tasks.named("javadocAll"));
+            task.dependsOn(tasks.named("assembleSamples"));
         });
 
         tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME, task -> task.dependsOn(checkDeadInternalLinks));

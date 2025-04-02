@@ -21,21 +21,22 @@ import model.CIBuildModel
 import model.TestCoverage
 import projects.FunctionalTestProject
 
-class FunctionalTestsPass(model: CIBuildModel, functionalTestProject: FunctionalTestProject) :
-    OsAwareBaseGradleBuildType(os = functionalTestProject.testCoverage.os, init = {
+class FunctionalTestsPass(
+    model: CIBuildModel,
+    functionalTestProject: FunctionalTestProject,
+) : OsAwareBaseGradleBuildType(os = functionalTestProject.testCoverage.os, init = {
         id("${functionalTestProject.testCoverage.asId(model)}_Trigger")
         name = functionalTestProject.name + " (Trigger)"
         type = Type.COMPOSITE
 
         applyDefaultSettings()
 
-        features {
-            publishBuildStatusToGithub(model)
-        }
-
         dependencies {
             snapshotDependencies(functionalTestProject.functionalTests)
         }
     }) {
     val testCoverage: TestCoverage = functionalTestProject.testCoverage
+
+    override val failStage: Boolean
+        get() = testCoverage.failStage
 }

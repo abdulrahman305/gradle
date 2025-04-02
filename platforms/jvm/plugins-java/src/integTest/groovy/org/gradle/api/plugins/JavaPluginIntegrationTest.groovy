@@ -19,6 +19,7 @@ package org.gradle.api.plugins
 import org.gradle.integtests.fixtures.AbstractIntegrationSpec
 import org.gradle.integtests.fixtures.ConfigurationUsageChangingFixture
 import org.gradle.integtests.fixtures.InspectsConfigurationReport
+import org.gradle.integtests.fixtures.ToBeFixedForIsolatedProjects
 import spock.lang.Issue
 
 class JavaPluginIntegrationTest extends AbstractIntegrationSpec implements InspectsConfigurationReport, ConfigurationUsageChangingFixture {
@@ -35,6 +36,21 @@ class JavaPluginIntegrationTest extends AbstractIntegrationSpec implements Inspe
 
         expect:
         succeeds "expect"
+    }
+
+    def "assemble builds the jar"() {
+        given:
+        settingsFile << "rootProject.name = 'test'"
+        buildFile << """
+            apply plugin: 'java'
+        """
+
+        expect:
+        succeeds "assemble"
+
+        and:
+        executed(":jar")
+        file("build/libs/test.jar").exists()
     }
 
     def "Java plugin adds outgoing variant for main source set"() {
@@ -147,6 +163,7 @@ Artifacts
         succeeds('testResolve')
     }
 
+    @ToBeFixedForIsolatedProjects(because = "file access on another project")
     def "mainSourceElements can be consumed by another task in a different project via Dependency Management"() {
         def subADir = createDir("subA")
         def buildFileA = subADir.file("build.gradle") << """

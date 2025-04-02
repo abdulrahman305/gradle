@@ -36,20 +36,22 @@ data class DecoratedReportProblem(
 class DecoratedReportProblemJsonSource(private val problem: DecoratedReportProblem) : JsonSource {
     override fun writeToJson(jsonWriter: JsonWriter) {
         with(jsonWriter) {
-            jsonObject {
-                property("trace") {
-                    jsonObjectList(problem.trace.sequence.asIterable()) { trace ->
-                        writePropertyTrace(trace)
+            jsonListItem {
+                jsonObject {
+                    property("trace") {
+                        jsonObjectList(problem.trace.sequence.asIterable()) { trace ->
+                            writePropertyTrace(trace)
+                        }
                     }
-                }
-                property(problem.kind) {
-                    writeStructuredMessage(problem.message)
-                }
-                problem.docLink?.let {
-                    property("documentationLink", it)
-                }
-                problem.failure?.let {
-                    writeError(it)
+                    property(problem.kind) {
+                        writeStructuredMessage(problem.message)
+                    }
+                    problem.docLink?.let {
+                        property("documentationLink", it)
+                    }
+                    problem.failure?.let {
+                        writeError(it)
+                    }
                 }
             }
         }
@@ -163,9 +165,6 @@ data class StackTracePart(
 
 class FailureDecorator {
 
-    private
-    val stringBuilder = StringBuilder()
-
     fun decorate(failure: Failure): DecoratedFailure {
         return DecoratedFailure(
             exceptionSummaryFor(failure),
@@ -175,13 +174,10 @@ class FailureDecorator {
 
     private
     fun partitionedTraceFor(failure: Failure): List<StackTracePart> {
+        val stringBuilder = StringBuilder()
         val listener = PartitioningFailurePrinterListener(stringBuilder)
-        try {
-            FailurePrinter.print(stringBuilder, failure, listener)
-            return listener.parts
-        } finally {
-            stringBuilder.setLength(0)
-        }
+        FailurePrinter.print(stringBuilder, failure, listener)
+        return listener.parts
     }
 
     private

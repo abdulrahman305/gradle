@@ -16,9 +16,8 @@
 
 package org.gradle.internal.component.model;
 
-import org.gradle.api.artifacts.Dependency;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.util.List;
 
 public interface GraphSelectionCandidates {
@@ -33,13 +32,6 @@ public interface GraphSelectionCandidates {
      * Returns the variant to use when attribute-based variant selection is not enabled.
      */
     @Nullable
-    default VariantGraphResolveState getLegacyVariant() {
-        return getVariantByConfigurationName(Dependency.DEFAULT_CONFIGURATION);
-    }
+    VariantGraphResolveState getLegacyVariant();
 
-    /**
-     * Returns the variant that is identified by the given configuration name.
-     */
-    @Nullable
-    VariantGraphResolveState getVariantByConfigurationName(String name);
 }

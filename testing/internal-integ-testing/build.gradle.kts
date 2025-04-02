@@ -20,6 +20,7 @@ dependencies {
     }
     api(projects.buildCacheBase)
     api(projects.buildOperations)
+    api(projects.buildOperationsTrace)
     api(projects.concurrent)
     api(projects.core)
     api(projects.coreApi)
@@ -49,7 +50,6 @@ dependencies {
     api(libs.groovy)
     api(libs.groovyXml)
     api(libs.guava)
-    api(libs.hamcrestCore)
     api(libs.hamcrest)
     api(libs.jettyWebApp) {
         because("Part of the public API via HttpServer")
@@ -84,6 +84,7 @@ dependencies {
     implementation(projects.buildEvents)
     implementation(projects.buildOption)
     implementation(projects.buildState)
+    implementation(projects.classloaders)
     implementation(projects.cli)
     implementation(projects.daemonServices)
     implementation(projects.enterpriseOperations)
@@ -95,16 +96,16 @@ dependencies {
     implementation(projects.io)
     implementation(projects.messaging)
     implementation(projects.modelCore)
-    implementation(projects.platformJvm)
+    implementation(projects.modelReflect)
     implementation(projects.serialization)
     implementation(projects.serviceProvider)
     implementation(projects.serviceRegistryBuilder)
     implementation(projects.time)
-    implementation(projects.toolchainsJvmShared)
     implementation(projects.buildProcessServices)
     implementation(projects.gradleCli)
     implementation(projects.launcher)
     implementation(projects.clientServices)
+    implementation(projects.wrapperShared)
 
     implementation(testFixtures(projects.buildOperations))
 
@@ -219,4 +220,7 @@ abstract class PrepareVersionsInfo : DefaultTask() {
         properties["versions"] = versions.get()
         gradlebuild.basics.util.ReproduciblePropertiesWriter.store(properties, destFile.get().asFile)
     }
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

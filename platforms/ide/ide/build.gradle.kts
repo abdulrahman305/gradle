@@ -4,21 +4,14 @@ plugins {
 
 description = "Plugins and model builders for integration with Eclipse and IntelliJ IDEs"
 
-errorprone {
-    disabledChecks.addAll(
-        "EmptyBlockTag", // 1 occurrences
-        "LoopOverCharArray", // 1 occurrences
-        "ObjectEqualsForPrimitives", // 3 occurrences
-        "StringCaseLocaleUsage", // 2 occurrences
-    )
-}
-
 dependencies {
     api(projects.baseServices)
     api(projects.core)
     api(projects.coreApi)
     api(projects.dependencyManagement)
     api(projects.fileCollections)
+    api(projects.fileOperations)
+    api(projects.jvmServices)
     api(projects.stdlibJavaExtensions)
     api(projects.modelCore)
     api(projects.platformJvm)
@@ -28,7 +21,7 @@ dependencies {
     api(libs.guava)
     api(libs.groovy)
     api(libs.inject)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
     implementation(projects.baseServicesGroovy)
     implementation(projects.ear)
@@ -43,7 +36,7 @@ dependencies {
     implementation(libs.groovyXml)
     implementation(libs.slf4jApi)
     implementation(libs.commonsIo)
-
+    implementation(libs.commonsLang3)
 
     runtimeOnly(projects.languageJvm)
     runtimeOnly(projects.testingBase)
@@ -92,3 +85,6 @@ packageCycles {
 
 integTest.usesJavadocCodeSnippets = true
 testFilesCleanup.reportOnly = true
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

@@ -33,8 +33,8 @@ import org.gradle.internal.logging.text.TreeFormatter;
 import org.gradle.internal.service.scopes.Scope;
 import org.gradle.internal.service.scopes.ServiceScope;
 import org.gradle.util.Path;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -200,7 +200,7 @@ public class DefaultProjectDependencyPublicationResolver implements ProjectDepen
      * with the given coordinate type.
      */
     private <T> Map<ProjectComponentPublication, T> getPublications(Path identityPath, Class<T> coordsType) {
-        Collection<ProjectComponentPublication> allPublications = publicationRegistry.getPublications(ProjectComponentPublication.class, identityPath);
+        Collection<ProjectComponentPublication> allPublications = publicationRegistry.getPublicationsForProject(ProjectComponentPublication.class, identityPath);
         Map<ProjectComponentPublication, T> publications = new LinkedHashMap<>(allPublications.size());
         for (ProjectComponentPublication publication : allPublications) {
             T coordinates = publication.getCoordinates(coordsType);

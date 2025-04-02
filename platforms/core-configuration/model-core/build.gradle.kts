@@ -5,43 +5,48 @@ plugins {
 
 description = "Implementation of configuration model types and annotation metadata handling (Providers, software model, conventions)"
 
+gradlebuildJava {
+    usesJdkInternals = true
+}
+
 dependencies {
     api(projects.serialization)
     api(projects.serviceLookup)
     api(projects.stdlibJavaExtensions)
     api(projects.coreApi)
-    api(projects.problemsApi)
     api(projects.hashing)
-    api(projects.processServices)
     api(projects.baseServices)
     api(projects.files)
     api(projects.functional)
-    api(projects.logging)
     api(projects.messaging)
+    api(projects.modelReflect)
     api(projects.persistentCache)
+    api(projects.problemsApi)
     api(projects.snapshots)
-
     api(libs.asm)
-    api(libs.jsr305)
+    api(libs.jspecify)
     api(libs.inject)
     api(libs.groovy)
     api(libs.guava)
 
     implementation(projects.baseServicesGroovy)
     implementation(projects.baseAsm)
+    implementation(projects.classloaders)
+    implementation(projects.logging)
     implementation(projects.serviceProvider)
     implementation(projects.serviceRegistryBuilder)
 
+    implementation(libs.jsr305)
     implementation(libs.kotlinStdlib)
     implementation(libs.slf4jApi)
     implementation(libs.commonsLang)
-    implementation(libs.fastutil)
 
     compileOnly(libs.errorProneAnnotations)
 
-    testFixturesApi(testFixtures(projects.diagnostics))
+    testFixturesApi(testFixtures(projects.baseDiagnostics))
     testFixturesApi(testFixtures(projects.core))
     testFixturesApi(projects.internalIntegTesting)
+    testFixturesImplementation(projects.baseAsm)
     testFixturesImplementation(libs.guava)
     testFixturesImplementation(libs.groovyAnt)
     testFixturesImplementation(libs.groovyDatetime)
@@ -52,6 +57,8 @@ dependencies {
     testImplementation(projects.native)
     testImplementation(projects.resources)
     testImplementation(testFixtures(projects.coreApi))
+    testImplementation(testFixtures(projects.languageGroovy))
+    testImplementation(testFixtures(projects.modelReflect))
 
     integTestImplementation(projects.platformBase)
 
@@ -69,12 +76,6 @@ strictCompile {
     ignoreRawTypes() // raw types used in public API
 }
 
-tasks.withType<JavaCompile>().configureEach {
-    options.release = null
-    sourceCompatibility = "8"
-    targetCompatibility = "8"
-}
-
 integTest.usesJavadocCodeSnippets = true
 
 packageCycles {
@@ -87,4 +88,7 @@ packageCycles {
     // cycle between org.gradle.api.internal.provider and org.gradle.util.internal
     // (api.internal.provider -> ConfigureUtil, DeferredUtil -> api.internal.provider)
     excludePatterns.add("org/gradle/util/internal/*")
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

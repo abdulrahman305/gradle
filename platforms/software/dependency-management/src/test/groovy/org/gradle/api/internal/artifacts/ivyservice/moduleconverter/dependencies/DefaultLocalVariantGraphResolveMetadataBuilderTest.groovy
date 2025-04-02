@@ -25,9 +25,9 @@ import org.gradle.api.artifacts.FileCollectionDependency
 import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.artifacts.component.ComponentIdentifier
 import org.gradle.api.internal.artifacts.configurations.ConfigurationInternal
-import org.gradle.api.internal.artifacts.configurations.DetachedConfigurationsProvider
 import org.gradle.api.internal.attributes.AttributeContainerInternal
-import org.gradle.api.internal.initialization.RootScriptDomainObjectContext
+import org.gradle.api.internal.initialization.StandaloneDomainObjectContext
+import org.gradle.internal.component.model.ComponentIdGenerator
 import org.gradle.internal.component.model.Exclude
 import org.gradle.internal.component.model.ExcludeMetadata
 import org.gradle.internal.component.model.LocalOriginDependencyMetadata
@@ -35,19 +35,22 @@ import org.gradle.util.TestUtil
 import spock.lang.Specification
 
 /**
- * Tests {@link DefaultLocalVariantMetadataBuilder}
+ * Tests {@link DefaultLocalVariantGraphResolveStateBuilder}
  */
 class DefaultLocalVariantGraphResolveMetadataBuilderTest extends Specification {
     def dependencyMetadataFactory = Mock(DependencyMetadataFactory)
     def excludeRuleConverter = Mock(ExcludeRuleConverter)
-    def converter = new DefaultLocalVariantMetadataBuilder(dependencyMetadataFactory, excludeRuleConverter)
+    def converter = new DefaultLocalVariantGraphResolveStateBuilder(
+        new ComponentIdGenerator(),
+        dependencyMetadataFactory,
+        excludeRuleConverter
+    )
 
     def configuration = Mock(ConfigurationInternal)
     def dependencySet = Mock(DependencySet)
     def dependencyConstraintSet = Mock(DependencyConstraintSet)
 
-    def cache = new LocalVariantMetadataBuilder.DependencyCache();
-    def configurationsProvider = new DetachedConfigurationsProvider()
+    def cache = new LocalVariantGraphResolveStateBuilder.DependencyCache();
     def componentId = Mock(ComponentIdentifier)
 
     def setup() {
@@ -65,8 +68,6 @@ class DefaultLocalVariantGraphResolveMetadataBuilderTest extends Specification {
         configuration.excludeRules >> ([] as Set)
         dependencySet.iterator() >> [].iterator()
         dependencyConstraintSet.iterator() >> [].iterator()
-
-        configurationsProvider.setTheOnlyConfiguration(configuration)
     }
 
     def "builds configuration with no dependencies or exclude rules"() {
@@ -163,6 +164,6 @@ class DefaultLocalVariantGraphResolveMetadataBuilderTest extends Specification {
     }
 
     def create() {
-        return converter.create(configuration, configurationsProvider, componentId, cache, RootScriptDomainObjectContext.INSTANCE, TestUtil.calculatedValueContainerFactory())
+        return converter.createConsumableVariantState(configuration, componentId, cache, StandaloneDomainObjectContext.ANONYMOUS, TestUtil.calculatedValueContainerFactory())
     }
 }

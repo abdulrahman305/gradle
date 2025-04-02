@@ -25,7 +25,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
     fun `should report binary incompatibility for upgraded property without any metadata`() {
         checkNotBinaryCompatible(
             v1 = {
-                withFile(
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
@@ -41,7 +41,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
                 )
             },
             v2 = {
-                withFile(
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
@@ -65,7 +65,18 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
     fun `should automatically accept binary incompatibilities for upgraded properties`() {
         checkBinaryCompatible(
             v1 = {
-                withFile(
+                withJavaFile(
+                    "java/com/example/TaskInterface.java",
+                    """
+                        package com.example;
+
+                        public interface TaskInterface {
+                            String getSourceCompatibility();
+                            void setSourceCompatibility(String value);
+                        }
+                    """
+                )
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
@@ -81,7 +92,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
                 )
             },
             v2 = {
-                withFile(
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
@@ -92,11 +103,37 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
                         }
                     """
                 )
-                withFile(
+                withJavaFile(
+                    "java/com/example/TaskInterface.java",
+                    """
+                        package com.example;
+                        import org.gradle.api.provider.Property;
+
+                        public interface TaskInterface {
+                            Property<String> getSourceCompatibility();
+                        }
+                    """
+                )
+                withJsonFile(
                     "resources/upgraded-properties.json",
                     """
                         [{
                             "containingType": "com.example.Task",
+                            "methodName": "getSourceCompatibility",
+                            "methodDescriptor": "()Lorg/gradle/api/provider/Property;",
+                            "propertyName": "sourceCompatibility",
+                            "replacedAccessors": [{
+                                "binaryCompatibility": "ACCESSORS_REMOVED",
+                                "descriptor": "()Ljava/lang/String;",
+                                "name": "getSourceCompatibility"
+                            }, {
+                                "binaryCompatibility": "ACCESSORS_REMOVED",
+                                "descriptor": "(Ljava/lang/String;)V",
+                                "name": "setSourceCompatibility"
+                            }]
+                        },
+                        {
+                            "containingType": "com.example.TaskInterface",
                             "methodName": "getSourceCompatibility",
                             "methodDescriptor": "()Lorg/gradle/api/provider/Property;",
                             "propertyName": "sourceCompatibility",
@@ -117,7 +154,9 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
             assertHasNoError()
             assertHasAccepted(
                 "Method com.example.Task.getSourceCompatibility(): Is not binary compatible. Reason for accepting this: Upgraded property" to listOf("Method return type has changed", "Method is now abstract"),
-                "Method com.example.Task.setSourceCompatibility(java.lang.String): Is not binary compatible. Reason for accepting this: Upgraded property" to listOf("Method has been removed")
+                "Method com.example.Task.setSourceCompatibility(java.lang.String): Is not binary compatible. Reason for accepting this: Upgraded property" to listOf("Method has been removed"),
+                "Method com.example.TaskInterface.getSourceCompatibility(): Is not binary compatible. Reason for accepting this: Upgraded property" to listOf("Method return type has changed"),
+                "Method com.example.TaskInterface.setSourceCompatibility(java.lang.String): Is not binary compatible. Reason for accepting this: Upgraded property" to listOf("Method has been removed")
             )
         }
     }
@@ -126,7 +165,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
     fun `should automatically accept binary incompatibilities for boolean upgraded properties`() {
         checkBinaryCompatible(
             v1 = {
-                withFile(
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
@@ -140,27 +179,67 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
                         }
                     """
                 )
+                withJavaFile(
+                    "java/com/example/TaskInterface.java",
+                    """
+                        package com.example;
+
+                        public interface TaskInterface {
+                            boolean isFailOnError();
+                            void setFailOnError(boolean b);
+                        }
+                    """
+                )
             },
             v2 = {
-                withFile(
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
                         import org.gradle.api.provider.Property;
 
                         public abstract class Task {
-                            /**
-                             * @since 2.0
-                             */
                             public abstract Property<Boolean> getFailOnError();
+                            public Property<Boolean> getIsFailOnError() {
+                                return getFailOnError();
+                            }
                         }
                     """
                 )
-                withFile(
+                withJavaFile(
+                    "java/com/example/TaskInterface.java",
+                    """
+                        package com.example;
+                        import org.gradle.api.provider.Property;
+
+                        public interface TaskInterface {
+                            Property<Boolean> getFailOnError();
+                            default Property<Boolean> getIsFailOnError() {
+                                return getFailOnError();
+                            }
+                        }
+                    """
+                )
+                withJsonFile(
                     "resources/upgraded-properties.json",
                     """
                         [{
                             "containingType": "com.example.Task",
+                            "methodName": "getFailOnError",
+                            "methodDescriptor": "()Lorg/gradle/api/provider/Property;",
+                            "propertyName": "failOnError",
+                            "replacedAccessors": [{
+                                "binaryCompatibility": "ACCESSORS_REMOVED",
+                                "descriptor": "()Z",
+                                "name": "isFailOnError"
+                            }, {
+                                "binaryCompatibility": "ACCESSORS_REMOVED",
+                                "descriptor": "(Z)V",
+                                "name": "setFailOnError"
+                            }]
+                        },
+                        {
+                            "containingType": "com.example.TaskInterface",
                             "methodName": "getFailOnError",
                             "methodDescriptor": "()Lorg/gradle/api/provider/Property;",
                             "propertyName": "failOnError",
@@ -181,63 +260,74 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
             assertHasNoError()
             assertHasAccepted(
                 "Method com.example.Task.getFailOnError(): Is not annotated with @Incubating. Reason for accepting this: Upgraded property" to listOf("Method added to public class", "Abstract method has been added to this class"),
+                "Method com.example.Task.getFailOnError(): Is not annotated with @since 2.0. Reason for accepting this: Upgraded property" to listOf("Method added to public class", "Abstract method has been added to this class"),
+                "Method com.example.Task.getIsFailOnError(): Is not annotated with @Incubating. Reason for accepting this: Upgraded property" to listOf("Method added to public class"),
+                "Method com.example.Task.getIsFailOnError(): Is not annotated with @since 2.0. Reason for accepting this: Upgraded property" to listOf("Method added to public class"),
                 "Method com.example.Task.isFailOnError(): Is not binary compatible. Reason for accepting this: Upgraded property" to listOf("Method has been removed"),
-                "Method com.example.Task.setFailOnError(boolean): Is not binary compatible. Reason for accepting this: Upgraded property" to listOf("Method has been removed")
+                "Method com.example.Task.setFailOnError(boolean): Is not binary compatible. Reason for accepting this: Upgraded property" to listOf("Method has been removed"),
+
+                "Method com.example.TaskInterface.getFailOnError(): Is not annotated with @Incubating. Reason for accepting this: Upgraded property" to listOf("Method added to interface"),
+                "Method com.example.TaskInterface.getFailOnError(): Is not annotated with @since 2.0. Reason for accepting this: Upgraded property" to listOf("Method added to interface"),
+                "Method com.example.TaskInterface.getIsFailOnError(): Is not annotated with @Incubating. Reason for accepting this: Upgraded property" to listOf("Method now provides default implementation"),
+                "Method com.example.TaskInterface.getIsFailOnError(): Is not annotated with @since 2.0. Reason for accepting this: Upgraded property" to listOf("Method now provides default implementation"),
+                "Method com.example.TaskInterface.getIsFailOnError(): Is not binary compatible. Reason for accepting this: Upgraded property" to listOf("Method now provides default implementation"),
+                "Method com.example.TaskInterface.isFailOnError(): Is not binary compatible. Reason for accepting this: Upgraded property" to listOf("Method has been removed"),
+                "Method com.example.TaskInterface.setFailOnError(boolean): Is not binary compatible. Reason for accepting this: Upgraded property" to listOf("Method has been removed")
             )
         }
     }
 
     @Test
-    fun `should report an error if newly added method does not have @since`() {
+    fun `should report an error if newly added method with different name does not have @since`() {
         checkNotBinaryCompatible(
             v1 = {
-                withFile(
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
 
                         public abstract class Task {
-                            public boolean isFailOnError() {
-                                return false;
+                            public String getOldDescription() {
+                                return "";
                             }
                         }
                     """
                 )
             },
             v2 = {
-                withFile(
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
                         import org.gradle.api.provider.Property;
 
                         public abstract class Task {
-                            public abstract Property<Boolean> getFailOnError();
+                            public abstract Property<String> getNewDescription();
                         }
                     """
                 )
-                withFile(
+                withJsonFile(
                     "resources/upgraded-properties.json",
                     """
                         [{
                             "containingType": "com.example.Task",
-                            "methodName": "getFailOnError",
+                            "methodName": "getNewDescription",
                             "methodDescriptor": "()Lorg/gradle/api/provider/Property;",
-                            "propertyName": "failOnError",
+                            "propertyName": "newDescription",
                             "replacedAccessors": [{
                                 "binaryCompatibility": "ACCESSORS_REMOVED",
-                                "descriptor": "()Z",
-                                "name": "isFailOnError"
+                                "descriptor": "()Ljava/lang/String;",
+                                "name": "getOldDescription"
                             }]
                         }]
                         """
                 )
             }
         ) {
-            assertHasErrors("Method com.example.Task.getFailOnError(): Is not annotated with @since 2.0.")
+            assertHasErrors("Method com.example.Task.getNewDescription(): Is not annotated with @since 2.0.")
             assertHasAccepted(
-                "Method com.example.Task.getFailOnError(): Is not annotated with @Incubating. Reason for accepting this: Upgraded property" to listOf("Method added to public class", "Abstract method has been added to this class"),
-                "Method com.example.Task.isFailOnError(): Is not binary compatible. Reason for accepting this: Upgraded property" to listOf("Method has been removed"),
+                "Method com.example.Task.getNewDescription(): Is not annotated with @Incubating. Reason for accepting this: Upgraded property" to listOf("Method added to public class", "Abstract method has been added to this class"),
+                "Method com.example.Task.getOldDescription(): Is not binary compatible. Reason for accepting this: Upgraded property" to listOf("Method has been removed"),
             )
         }
     }
@@ -246,7 +336,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
     fun `should fail if some method was upgraded but it was not actually changed`() {
         checkBinaryCompatibleFailsWithoutReport(
             v1 = {
-                withFile(
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
@@ -262,7 +352,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
                 )
             },
             v2 = {
-                withFile(
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
@@ -275,7 +365,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
                         }
                     """
                 )
-                withFile(
+                withJsonFile(
                     "resources/upgraded-properties.json",
                     """
                         [{
@@ -305,7 +395,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
     fun `should not fail if some method was upgraded and not removed but marked as kept`() {
         checkBinaryCompatible(
             v1 = {
-                withFile(
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
@@ -321,7 +411,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
                 )
             },
             v2 = {
-                withFile(
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
@@ -334,7 +424,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
                         }
                     """
                 )
-                withFile(
+                withJsonFile(
                     "resources/upgraded-properties.json",
                     """
                         [{
@@ -367,7 +457,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
     fun `should not fail if some method was upgraded and removed but marked as kept`() {
         checkBinaryCompatible(
             v1 = {
-                withFile(
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
@@ -383,7 +473,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
                 )
             },
             v2 = {
-                withFile(
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
@@ -396,7 +486,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
                         }
                     """
                 )
-                withFile(
+                withJsonFile(
                     "resources/upgraded-properties.json",
                     """
                         [{
@@ -429,7 +519,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
     fun `should accept upgraded property that used different name`() {
         checkBinaryCompatible(
             v1 = {
-                withFile(
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
@@ -445,7 +535,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
                 )
             },
             v2 = {
-                withFile(
+                withJavaFile(
                     "java/com/example/Task.java",
                     """
                         package com.example;
@@ -459,7 +549,7 @@ class UpgradedPropertiesChangesTest : AbstractBinaryCompatibilityTest() {
                         }
                     """
                 )
-                withFile(
+                withJsonFile(
                     "resources/upgraded-properties.json",
                     """
                         [{

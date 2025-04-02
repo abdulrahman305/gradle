@@ -17,9 +17,7 @@
 package org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.builder;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.Lists;
 import org.gradle.api.Describable;
-import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.artifacts.ModuleIdentifier;
 import org.gradle.api.artifacts.component.ComponentSelector;
 import org.gradle.api.artifacts.component.ProjectComponentSelector;
@@ -33,6 +31,7 @@ import org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.Compone
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.ComponentSelectionReasonInternal;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.ComponentSelectionReasons;
 import org.gradle.api.internal.attributes.AttributeDesugaring;
+import org.gradle.internal.component.model.ComponentOverrideMetadata;
 import org.gradle.internal.component.model.DefaultComponentOverrideMetadata;
 import org.gradle.internal.component.model.DependencyMetadata;
 import org.gradle.internal.component.model.IvyArtifactName;
@@ -46,8 +45,8 @@ import org.gradle.internal.resolve.resolver.DependencyToComponentIdResolver;
 import org.gradle.internal.resolve.result.BuildableComponentIdResolveResult;
 import org.gradle.internal.resolve.result.ComponentIdResolveResult;
 import org.gradle.internal.resolve.result.DefaultBuildableComponentIdResolveResult;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -64,11 +63,11 @@ import static org.gradle.util.internal.TextUtil.getPluralEnding;
  * In this case {@link #resolved} will be `true` and {@link ModuleResolveState#getSelected()} will point to the selected component.
  */
 class SelectorState implements DependencyGraphSelector, ResolvableSelectorState {
-    private final Long id;
+
     private final DependencyState dependencyState;
     private final DependencyToComponentIdResolver resolver;
     private final ResolvedVersionConstraint versionConstraint;
-    private final List<ComponentSelectionDescriptorInternal> dependencyReasons = Lists.newArrayListWithExpectedSize(4);
+    private final List<ComponentSelectionDescriptorInternal> dependencyReasons = new ArrayList<>(4);
     private final boolean isProjectSelector;
     private final AttributeDesugaring attributeDesugaring;
 
@@ -82,9 +81,6 @@ class SelectorState implements DependencyGraphSelector, ResolvableSelectorState 
     private boolean fromLock;
     private boolean reusable;
     private boolean markedReusableAlready;
-
-    @SuppressWarnings("deprecation")
-    private org.gradle.api.artifacts.ClientModule clientModule;
     private boolean changing;
 
     // An internal counter used to track the number of outgoing edges
@@ -95,8 +91,7 @@ class SelectorState implements DependencyGraphSelector, ResolvableSelectorState 
     // evicted, but it can still be reintegrated later in a different path.
     private int outgoingEdgeCount;
 
-    SelectorState(Long id, DependencyState dependencyState, DependencyToComponentIdResolver resolver, ResolveState resolveState, ModuleIdentifier targetModuleId, boolean versionByAncestor) {
-        this.id = id;
+    SelectorState(DependencyState dependencyState, DependencyToComponentIdResolver resolver, ResolveState resolveState, ModuleIdentifier targetModuleId, boolean versionByAncestor) {
         this.resolver = resolver;
         this.targetModule = resolveState.getModule(targetModuleId);
         if (versionByAncestor) {
@@ -124,22 +119,17 @@ class SelectorState implements DependencyGraphSelector, ResolvableSelectorState 
         }
     }
 
-    public void release(ResolutionConflictTracker conflictTracker) {
+    public void release() {
         outgoingEdgeCount--;
         assert outgoingEdgeCount >= 0 : "Inconsistent selector state detected: outgoing edge count cannot be negative";
         if (outgoingEdgeCount == 0) {
-            removeAndMarkSelectorForReuse(conflictTracker);
+            removeAndMarkSelectorForReuse();
         }
     }
 
-    private void removeAndMarkSelectorForReuse(ResolutionConflictTracker conflictTracker) {
-        targetModule.removeSelector(this, conflictTracker);
+    private void removeAndMarkSelectorForReuse() {
+        targetModule.removeSelector(this);
         resolved = false;
-    }
-
-    @Override
-    public Long getResultId() {
-        return id;
     }
 
     @Override
@@ -193,7 +183,9 @@ class SelectorState implements DependencyGraphSelector, ResolvableSelectorState 
             if (dependencyState.failure != null) {
                 idResolveResult.failed(dependencyState.failure);
             } else {
-                resolver.resolve(dependencyState.getDependency(), selector, rejector, idResolveResult);
+                IvyArtifactName firstArtifact = getFirstDependencyArtifact();
+                ComponentOverrideMetadata overrideMetadata = DefaultComponentOverrideMetadata.forDependency(changing, firstArtifact);
+                resolver.resolve(dependencyState.getDependency().getSelector(), overrideMetadata, selector, rejector, idResolveResult);
             }
 
             if (idResolveResult.getFailure() != null) {
@@ -249,6 +241,9 @@ class SelectorState implements DependencyGraphSelector, ResolvableSelectorState 
         }
         this.reusable = true;
         if (markedReusableAlready) {
+            // TODO: We have hit an unstable graph. This selector has already added, removed, added again,
+            // and we are removing it once again. We should fail the resolution here and ask the user
+            // to fix the graph -- likely by adding a version constraint.
             return true;
         } else {
             markedReusableAlready = true;
@@ -257,11 +252,11 @@ class SelectorState implements DependencyGraphSelector, ResolvableSelectorState 
     }
 
     /**
-     * Checks if the selector can be used for resolution.
+     * Checks if the selector affects selection at the moment it is added to a module
      *
      * @return {@code true} if the selector can resolve, {@code false} otherwise
      */
-    boolean canResolve() {
+    boolean canAffectSelection() {
         if (reusable) {
             return true;
         }
@@ -276,7 +271,7 @@ class SelectorState implements DependencyGraphSelector, ResolvableSelectorState 
         this.resolved = true;
         this.reusable = false;
 
-        // Target module can change, if this is called as the result of a module replacement conflict.
+        // Target module can change, if this is called as the result of a module or capability replacement conflict.
         this.targetModule = selected.getModule();
     }
 
@@ -330,13 +325,7 @@ class SelectorState implements DependencyGraphSelector, ResolvableSelectorState 
     @Override
     public IvyArtifactName getFirstDependencyArtifact() {
         List<IvyArtifactName> artifacts = dependencyState.getDependency().getArtifacts();
-        return artifacts == null || artifacts.isEmpty() ? null : artifacts.get(0);
-    }
-
-    @Override
-    @Deprecated
-    public org.gradle.api.artifacts.ClientModule getClientModule() {
-        return clientModule;
+        return artifacts.isEmpty() ? null : artifacts.get(0);
     }
 
     @Override
@@ -389,21 +378,9 @@ class SelectorState implements DependencyGraphSelector, ResolvableSelectorState 
                 resolved = false; // when a selector changes from non lock to lock, we must reselect
             }
             dependencyState.addSelectionReasons(dependencyReasons);
-            trackDetailsForOverrideMetadata(dependencyState);
-        }
-    }
 
-    @SuppressWarnings("deprecation")
-    private void trackDetailsForOverrideMetadata(DependencyState dependencyState) {
-        org.gradle.api.artifacts.ClientModule nextClientModule = DefaultComponentOverrideMetadata.extractClientModule(dependencyState.getDependency());
-        if (nextClientModule != null && !nextClientModule.equals(clientModule)) {
-            if (clientModule == null) {
-                clientModule = nextClientModule;
-            } else {
-                throw new InvalidUserDataException(dependencyState.getDependency().getSelector().getDisplayName() + " has more than one client module definitions.");
-            }
+            changing = changing || dependencyState.getDependency().isChanging();
         }
-        changing = changing || dependencyState.getDependency().isChanging();
     }
 
     private static class UnmatchedVersionsReason implements Describable {

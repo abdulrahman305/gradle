@@ -28,6 +28,13 @@
     "crossVersionTests": false
   },
   {
+    "name": "base-diagnostics",
+    "path": "platforms/core-configuration/base-diagnostics",
+    "unitTests": true,
+    "functionalTests": true,
+    "crossVersionTests": false
+  },
+  {
     "name": "base-ide-plugins",
     "path": "platforms/ide/base-ide-plugins",
     "unitTests": true,
@@ -126,9 +133,30 @@
     "crossVersionTests": false
   },
   {
+    "name": "build-init-specs",
+    "path": "platforms/software/build-init-specs",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "build-init-specs-api",
+    "path": "platforms/software/build-init-specs-api",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
     "name": "build-operations",
     "path": "platforms/core-runtime/build-operations",
     "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "build-operations-trace",
+    "path": "platforms/core-runtime/build-operations-trace",
+    "unitTests": false,
     "functionalTests": false,
     "crossVersionTests": false
   },
@@ -157,6 +185,13 @@
     "name": "build-state",
     "path": "platforms/core-runtime/build-state",
     "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "classloaders",
+    "path": "platforms/core-runtime/classloaders",
+    "unitTests": false,
     "functionalTests": false,
     "crossVersionTests": false
   },
@@ -212,7 +247,7 @@
   {
     "name": "configuration-problems-base",
     "path": "platforms/core-configuration/configuration-problems-base",
-    "unitTests": false,
+    "unitTests": true,
     "functionalTests": false,
     "crossVersionTests": false
   },
@@ -239,7 +274,7 @@
   },
   {
     "name": "core-platform",
-    "path": "subprojects/core-platform",
+    "path": "packaging/core-platform",
     "unitTests": false,
     "functionalTests": false,
     "crossVersionTests": false
@@ -273,6 +308,13 @@
     "crossVersionTests": false
   },
   {
+    "name": "daemon-server-worker",
+    "path": "platforms/core-execution/daemon-server-worker",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
     "name": "daemon-services",
     "path": "platforms/core-runtime/daemon-services",
     "unitTests": true,
@@ -297,6 +339,13 @@
     "name": "declarative-dsl-evaluator",
     "path": "platforms/core-configuration/declarative-dsl-evaluator",
     "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "declarative-dsl-internal-utils",
+    "path": "platforms/core-configuration/declarative-dsl-internal-utils",
+    "unitTests": true,
     "functionalTests": false,
     "crossVersionTests": false
   },
@@ -336,13 +385,6 @@
     "crossVersionTests": false
   },
   {
-    "name": "diagnostics",
-    "path": "subprojects/diagnostics",
-    "unitTests": true,
-    "functionalTests": true,
-    "crossVersionTests": false
-  },
-  {
     "name": "distributions-basics",
     "path": "platforms/core-runtime/distributions-basics",
     "unitTests": false,
@@ -358,14 +400,14 @@
   },
   {
     "name": "distributions-dependencies",
-    "path": "subprojects/distributions-dependencies",
+    "path": "packaging/distributions-dependencies",
     "unitTests": false,
     "functionalTests": false,
     "crossVersionTests": false
   },
   {
     "name": "distributions-full",
-    "path": "subprojects/distributions-full",
+    "path": "packaging/distributions-full",
     "unitTests": false,
     "functionalTests": false,
     "crossVersionTests": false
@@ -487,6 +529,13 @@
     "path": "platforms/core-configuration/file-collections",
     "unitTests": true,
     "functionalTests": true,
+    "crossVersionTests": false
+  },
+  {
+    "name": "file-operations",
+    "path": "platforms/core-configuration/file-operations",
+    "unitTests": false,
+    "functionalTests": false,
     "crossVersionTests": false
   },
   {
@@ -616,6 +665,13 @@
     "crossVersionTests": false
   },
   {
+    "name": "instrumentation-reporting",
+    "path": "platforms/core-runtime/instrumentation-reporting",
+    "unitTests": false,
+    "functionalTests": true,
+    "crossVersionTests": false
+  },
+  {
     "name": "integ-test",
     "path": "testing/integ-test",
     "unitTests": false,
@@ -631,7 +687,7 @@
   },
   {
     "name": "internal-build-reports",
-    "path": "subprojects/internal-build-reports",
+    "path": "packaging/internal-build-reports",
     "unitTests": false,
     "functionalTests": false,
     "crossVersionTests": false
@@ -639,7 +695,7 @@
   {
     "name": "internal-instrumentation-api",
     "path": "platforms/core-runtime/internal-instrumentation-api",
-    "unitTests": false,
+    "unitTests": true,
     "functionalTests": false,
     "crossVersionTests": false
   },
@@ -833,6 +889,13 @@
     "crossVersionTests": false
   },
   {
+    "name": "model-reflect",
+    "path": "platforms/core-configuration/model-reflect",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
     "name": "native",
     "path": "platforms/core-runtime/native",
     "unitTests": true,
@@ -919,7 +982,7 @@
   {
     "name": "plugins-java",
     "path": "platforms/jvm/plugins-java",
-    "unitTests": true,
+    "unitTests": false,
     "functionalTests": true,
     "crossVersionTests": true
   },
@@ -975,7 +1038,7 @@
   {
     "name": "problems",
     "path": "platforms/ide/problems",
-    "unitTests": false,
+    "unitTests": true,
     "functionalTests": true,
     "crossVersionTests": false
   },
@@ -987,15 +1050,29 @@
     "crossVersionTests": false
   },
   {
-    "name": "process-services",
-    "path": "platforms/core-runtime/process-services",
+    "name": "problems-rendering",
+    "path": "platforms/ide/problems-rendering",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "process-memory-services",
+    "path": "platforms/core-runtime/process-memory-services",
     "unitTests": true,
     "functionalTests": true,
     "crossVersionTests": false
   },
   {
+    "name": "process-services",
+    "path": "platforms/core-runtime/process-services",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
     "name": "public-api",
-    "path": "subprojects/public-api",
+    "path": "packaging/public-api",
     "unitTests": false,
     "functionalTests": false,
     "crossVersionTests": false
@@ -1015,10 +1092,24 @@
     "crossVersionTests": false
   },
   {
+    "name": "report-rendering",
+    "path": "platforms/core-runtime/report-rendering",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
     "name": "reporting",
     "path": "platforms/software/reporting",
     "unitTests": true,
     "functionalTests": true,
+    "crossVersionTests": false
+  },
+  {
+    "name": "request-handler-worker",
+    "path": "platforms/core-execution/request-handler-worker",
+    "unitTests": true,
+    "functionalTests": false,
     "crossVersionTests": false
   },
   {
@@ -1144,6 +1235,13 @@
     "name": "soak",
     "path": "testing/soak",
     "unitTests": false,
+    "functionalTests": true,
+    "crossVersionTests": false
+  },
+  {
+    "name": "software-diagnostics",
+    "path": "platforms/software/software-diagnostics",
+    "unitTests": true,
     "functionalTests": true,
     "crossVersionTests": false
   },
@@ -1285,6 +1383,13 @@
     "path": "platforms/software/version-control",
     "unitTests": true,
     "functionalTests": true,
+    "crossVersionTests": false
+  },
+  {
+    "name": "versioned-cache",
+    "path": "platforms/core-runtime/versioned-cache",
+    "unitTests": true,
+    "functionalTests": false,
     "crossVersionTests": false
   },
   {

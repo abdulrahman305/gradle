@@ -16,7 +16,7 @@
 
 package org.gradle.api.internal.artifacts.ivyservice.moduleconverter.dependencies;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.artifacts.DependencyConstraint;
 import org.gradle.api.artifacts.ModuleDependency;
@@ -31,8 +31,8 @@ import org.gradle.internal.component.local.model.DefaultProjectComponentSelector
 import org.gradle.internal.component.model.LocalComponentDependencyMetadata;
 import org.gradle.internal.component.model.LocalOriginDependencyMetadata;
 import org.gradle.util.internal.WrapUtil;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 
@@ -63,12 +63,12 @@ public class DefaultDependencyMetadataFactory implements DependencyMetadataFacto
             return new DefaultProjectComponentSelector(
                 projectDependency.getTargetProjectIdentity(),
                 ((ImmutableAttributes) projectDependency.getAttributes()).asImmutable(),
-                Collections.emptyList()
+                ImmutableSet.of()
             );
         }
 
         return DefaultModuleComponentSelector.newSelector(
-            DefaultModuleIdentifier.newId(nullToEmpty(dependencyConstraint.getGroup()), nullToEmpty(dependencyConstraint.getName())), dependencyConstraint.getVersionConstraint(), dependencyConstraint.getAttributes(), ImmutableList.of());
+            DefaultModuleIdentifier.newId(nullToEmpty(dependencyConstraint.getGroup()), nullToEmpty(dependencyConstraint.getName())), dependencyConstraint.getVersionConstraint(), dependencyConstraint.getAttributes(), ImmutableSet.of());
     }
 
     private DependencyMetadataConverter findFactoryForDependency(ModuleDependency dependency) {

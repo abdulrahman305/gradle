@@ -19,8 +19,8 @@ package org.gradle.internal.work;
 import org.gradle.internal.UncheckedException;
 import org.gradle.internal.concurrent.ExecutorFactory;
 import org.gradle.internal.concurrent.ManagedExecutor;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -122,7 +122,7 @@ public class DefaultConditionalExecutionQueue<T> implements ConditionalExecution
 
     /**
      * ExecutionRunners process items from the queue until there are no items left, at which point it will either wait for
-     * new items to arrive (if there are < max workers threads running) or exit, finishing the thread.
+     * new items to arrive (if there are less than max workers threads running) or exit, finishing the thread.
      */
     private class ExecutionRunner implements Runnable {
         @Override

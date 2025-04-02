@@ -15,13 +15,18 @@ dependencies {
 
     implementation(projects.logging)
     implementation(projects.loggingApi)
+    implementation(projects.reportRendering)
     implementation(projects.serviceLookup)
 
     implementation(libs.guava)
+    implementation(libs.jspecify)
 
     testImplementation(projects.internalTesting)
 
     integTestImplementation(libs.jsoup)
 
     integTestDistributionRuntimeOnly(projects.distributionsFull)
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

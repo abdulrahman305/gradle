@@ -20,14 +20,14 @@ import org.gradle.internal.classpath.ClassPath
 import org.gradle.internal.classpath.DefaultClassPath
 import org.gradle.internal.classpath.TransformedClassPath
 import org.gradle.internal.serialize.Decoder
-import org.gradle.internal.serialize.Encoder
+import org.gradle.internal.serialize.graph.WriteContext
 import org.gradle.internal.serialize.graph.readFile
 import org.gradle.internal.serialize.graph.writeCollection
 import org.gradle.internal.serialize.graph.writeFile
 
 
 internal
-fun Encoder.writeClassPath(classPath: ClassPath) {
+fun WriteContext.writeClassPath(classPath: ClassPath) {
     // Ensure that the proper type is going to be restored,
     // because it is important for the equality checks.
     if (classPath is TransformedClassPath) {
@@ -40,16 +40,16 @@ fun Encoder.writeClassPath(classPath: ClassPath) {
 }
 
 
-internal
-fun Encoder.writeDefaultClassPath(classPath: ClassPath) {
+private
+fun WriteContext.writeDefaultClassPath(classPath: ClassPath) {
     writeCollection(classPath.asFiles) {
         writeFile(it)
     }
 }
 
 
-internal
-fun Encoder.writeTransformedClassPath(classPath: TransformedClassPath) {
+private
+fun WriteContext.writeTransformedClassPath(classPath: TransformedClassPath) {
     writeCollection(classPath.asFiles.zip(classPath.asTransformedFiles)) {
         writeFile(it.first)
         writeFile(it.second)
@@ -68,7 +68,7 @@ fun Decoder.readClassPath(): ClassPath {
 }
 
 
-internal
+private
 fun Decoder.readDefaultClassPath(): ClassPath {
     val size = readSmallInt()
     val builder = DefaultClassPath.builderWithExactSize(size)
@@ -79,7 +79,7 @@ fun Decoder.readDefaultClassPath(): ClassPath {
 }
 
 
-internal
+private
 fun Decoder.readTransformedClassPath(): ClassPath {
     val size = readSmallInt()
     val builder = TransformedClassPath.builderWithExactSize(size)

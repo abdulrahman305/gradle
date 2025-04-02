@@ -16,7 +16,8 @@
 
 package org.gradle.model.internal.asm;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.NonNull;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.Method;
@@ -185,8 +186,29 @@ public class AsmClassGeneratorUtils {
         }
     }
 
-    @Nonnull
+    @NonNull
     private static String descriptorOf(Class<?> cl) {
         return getType(cl).getDescriptor();
+    }
+
+    public static Class<?> getWrapperTypeForPrimitiveType(Class<?> type) {
+        if (type == Character.TYPE) {
+            return Character.class;
+        } else if (type == Boolean.TYPE) {
+            return Boolean.class;
+        } else if (type == Long.TYPE) {
+            return Long.class;
+        } else if (type == Integer.TYPE) {
+            return Integer.class;
+        } else if (type == Short.TYPE) {
+            return Short.class;
+        } else if (type == Byte.TYPE) {
+            return Byte.class;
+        } else if (type == Float.TYPE) {
+            return Float.class;
+        } else if (type == Double.TYPE) {
+            return Double.class;
+        }
+        throw new IllegalArgumentException(String.format("Don't know the wrapper type for primitive type %s.", type));
     }
 }

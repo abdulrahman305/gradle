@@ -193,7 +193,7 @@ class DependencyVerificationSignatureWriteIntegTest extends AbstractSignatureVer
         pluginManagement {
             repositories {
                 maven {
-                    url '$pluginRepo.uri'
+                    url = '$pluginRepo.uri'
                 }
             }
         }
@@ -221,7 +221,7 @@ class DependencyVerificationSignatureWriteIntegTest extends AbstractSignatureVer
         buildFile << """
           buildscript {
              repositories {
-                maven { url "${pluginRepo.uri}" }
+                maven { url = "${pluginRepo.uri}" }
              }
              dependencies {
                 classpath 'com:myplugin:1.0'
@@ -487,8 +487,6 @@ class DependencyVerificationSignatureWriteIntegTest extends AbstractSignatureVer
         when:
         serveValidKey()
         writeVerificationMetadata()
-
-        executer.expectDocumentedDeprecationWarning("Listener registration using Gradle.buildFinished() has been deprecated. This will fail with an error in Gradle 9.0. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_7.html#task_execution_events")
         succeeds ":help"
 
         then:

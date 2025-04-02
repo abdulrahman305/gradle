@@ -29,8 +29,8 @@ import org.gradle.api.specs.Spec;
 import org.gradle.api.tasks.TaskDependency;
 import org.gradle.internal.HasInternalProtocol;
 import org.gradle.internal.deprecation.DeprecationLogger;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.io.File;
 import java.util.Map;
 import java.util.Set;
@@ -228,108 +228,11 @@ public interface Configuration extends FileCollection, HasConfigurableAttributes
     Set<File> resolve();
 
     /**
-     * Takes a closure which gets coerced into a {@link Spec}. Behaves otherwise in the same way as
-     * {@link #files(org.gradle.api.specs.Spec)}.
-     *
-     * @implSpec Usage: This method should only be called on resolvable configurations and should fail if
-     * called on a configuration that does not permit this usage.  It should warn if called on a configuration that has
-     * allowed this usage but marked it as deprecated.
-     *
-     * @param dependencySpecClosure The closure describing a filter applied to the all the dependencies of this configuration (including dependencies from extended configurations).
-     * @return The files of a subset of dependencies of this configuration.
-     *
-     * @deprecated Use {@code getIncoming().artifactView(Action)} with a {@code componentFilter} instead.
-     */
-    @Deprecated
-    Set<File> files(Closure dependencySpecClosure);
-
-    /**
-     * Resolves this configuration. This locates and downloads the files which make up this configuration.
-     * But only the resulting set of files belonging to the subset of dependencies specified by the dependencySpec
-     * is returned.
-     *
-     * @implSpec Usage: This method should only be called on resolvable configurations and should fail if
-     * called on a configuration that does not permit this usage.  It should warn if called on a configuration that has
-     * allowed this usage but marked it as deprecated.
-     *
-     * @param dependencySpec The spec describing a filter applied to the all the dependencies of this configuration (including dependencies from extended configurations).
-     * @return The files of a subset of dependencies of this configuration.
-     *
-     * @deprecated Use {@code getIncoming().artifactView(Action)} with a {@code componentFilter} instead.
-     */
-    @Deprecated
-    Set<File> files(Spec<? super Dependency> dependencySpec);
-
-    /**
-     * Resolves this configuration. This locates and downloads the files which make up this configuration.
-     * But only the resulting set of files belonging to the specified dependencies
-     * is returned.
-     *
-     * @implSpec Usage: This method should only be called on resolvable configurations and should fail if
-     * called on a configuration that does not permit this usage.  It should warn if called on a configuration that has
-     * allowed this usage but marked it as deprecated.
-     *
-     * @param dependencies The dependencies to be resolved
-     * @return The files of a subset of dependencies of this configuration.
-     *
-     * @deprecated Use {@code getIncoming().artifactView(Action)} with a {@code componentFilter} instead.
-     */
-    @Deprecated
-    Set<File> files(Dependency... dependencies);
-
-    /**
-     * Resolves this configuration lazily. The resolve happens when the elements of the returned {@link FileCollection} get accessed the first time.
-     * This locates and downloads the files which make up this configuration. Only the resulting set of files belonging to the subset
-     * of dependencies specified by the dependencySpec is contained in the FileCollection.
-     *
-     * @implSpec Usage: This method should only be called on resolvable configurations and should fail if
-     * called on a configuration that does not permit this usage.  It should warn if called on a configuration that has
-     * allowed this usage but marked it as deprecated.
-     *
-     * @param dependencySpec The spec describing a filter applied to the all the dependencies of this configuration (including dependencies from extended configurations).
-     * @return The FileCollection with a subset of dependencies of this configuration.
-     *
-     * @deprecated Use {@code getIncoming().artifactView(Action)} with a {@code componentFilter} instead.
-     */
-    @Deprecated
-    FileCollection fileCollection(Spec<? super Dependency> dependencySpec);
-
-    /**
-     * Takes a closure which gets coerced into a {@link Spec}. Behaves otherwise in the same way as
-     * {@link #fileCollection(org.gradle.api.specs.Spec)}.
-     *
-     * @implSpec Usage: This method should only be called on resolvable configurations and should fail if
-     * called on a configuration that does not permit this usage.  It should warn if called on a configuration that has
-     * allowed this usage but marked it as deprecated.
-     *
-     * @param dependencySpecClosure The closure describing a filter applied to the all the dependencies of this configuration (including dependencies from extended configurations).
-     * @return The FileCollection with a subset of dependencies of this configuration.
-     *
-     * @deprecated Use {@code getIncoming().artifactView(Action)} with a {@code componentFilter} instead.
-     */
-    @Deprecated
-    FileCollection fileCollection(Closure dependencySpecClosure);
-
-    /**
-     * Resolves this configuration lazily. The resolve happens when the elements of the returned {@link FileCollection} get accessed the first time.
-     * This locates and downloads the files which make up this configuration. Only the resulting set of files belonging to specified
-     * dependencies is contained in the FileCollection.
-     *
-     * @implSpec Usage: This method should only be called on resolvable configurations and should fail if
-     * called on a configuration that does not permit this usage.  It should warn if called on a configuration that has
-     * allowed this usage but marked it as deprecated.
-     *
-     * @param dependencies The dependencies for which the FileCollection should contain the files.
-     * @return The FileCollection with a subset of dependencies of this configuration.
-     *
-     * @deprecated Use {@code getIncoming().artifactView(Action)} with a {@code componentFilter} instead.
-     */
-    @Deprecated
-    FileCollection fileCollection(Dependency... dependencies);
-
-    /**
-     * Resolves this configuration. This locates and downloads the files which make up this configuration, and returns
-     * a {@link ResolvedConfiguration} that may be used to determine information about the resolve (including errors).
+     * Returns a {@link ResolvedConfiguration}, a legacy view of the results of dependency resolution.
+     * <strong>Avoid this method for new code</strong>. Prefer accessing resolution outputs via
+     * {@link #getIncoming()}. This API will be deprecated and removed in future Gradle versions.
+     * <p>
+     * See {@link ResolvedConfiguration} for details on why this API should not be used.
      *
      * @implSpec Usage: This method should only be called on resolvable configurations and should fail if
      * called on a configuration that does not permit this usage.  It should warn if called on a configuration that has
@@ -338,16 +241,6 @@ public interface Configuration extends FileCollection, HasConfigurableAttributes
      * @return The ResolvedConfiguration object
      */
     ResolvedConfiguration getResolvedConfiguration();
-
-    /**
-     * Returns the name of the task that upload the artifacts of this configuration to repositories
-     * declared by the user.
-     *
-     * @return The name of the associated upload task
-     * @see org.gradle.api.tasks.Upload
-     */
-    @Deprecated // TODO:Finalize Upload Removal - Issue #21439
-    String getUploadTaskName();
 
     /**
      * Returns a {@code TaskDependency} object containing all required dependencies to build the local dependencies
@@ -489,7 +382,7 @@ public interface Configuration extends FileCollection, HasConfigurableAttributes
      * If multiple actions are supplied, each action will be executed until the set of dependencies is no longer empty.
      * Remaining actions will be ignored.
      *
-     * @implSpec Usage: This method should only be called on resolvable configurations and will emit a deprecation warning if
+     * @implSpec Usage: This method should only be called on declarable configurations and will emit a deprecation warning if
      * called on a configuration that does not permit this usage, or has allowed this usage but marked it as deprecated.
      *
      * @param action the action to execute when the configuration has no defined dependencies.
@@ -575,11 +468,12 @@ public interface Configuration extends FileCollection, HasConfigurableAttributes
     Set<Configuration> getAll();
 
     /**
-     * Returns the incoming dependencies of this configuration.
+     * Returns a {@link ResolvableDependencies} instance, exposing the results of dependency resolution.
+     * This method is the primary way to consume dependency resolution outputs.
      *
      * @implSpec Usage: This method should only be called on consumable and resolvable configurations, but will not warn if used otherwise.
      *
-     * @return The incoming dependencies of this configuration. Never {@code null}.
+     * @return An object that exposes the results of dependency resolution.
      */
     ResolvableDependencies getIncoming();
 

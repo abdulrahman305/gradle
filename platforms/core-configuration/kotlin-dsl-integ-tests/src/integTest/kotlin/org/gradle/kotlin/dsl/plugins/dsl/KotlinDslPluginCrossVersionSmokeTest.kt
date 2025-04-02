@@ -59,8 +59,6 @@ class KotlinDslPluginCrossVersionSmokeTest : AbstractKotlinIntegrationTest() {
         expectKotlinDslPluginDeprecation()
         if (GradleContextualExecuter.isConfigCache()) {
             expectForUseAtConfigurationTimeDeprecation()
-        } else {
-            expectBuildScopeListenerDeprecation()
         }
 
         build("help").apply {
@@ -120,7 +118,9 @@ class KotlinDslPluginCrossVersionSmokeTest : AbstractKotlinIntegrationTest() {
         withDefaultSettings().appendText("""includeBuild("producer")""")
         withBuildScript("""plugins { id("some") }""")
 
-        executer.expectDeprecationWarning("w: Language version $oldestKotlinLanguageVersion is deprecated and its support will be removed in a future version of Kotlin")
+        repeat(2) {
+            executer.expectDeprecationWarning("w: Language version $oldestKotlinLanguageVersion is deprecated and its support will be removed in a future version of Kotlin")
+        }
 
         build("help").apply {
             assertThat(output, containsString("some!"))
@@ -168,8 +168,6 @@ class KotlinDslPluginCrossVersionSmokeTest : AbstractKotlinIntegrationTest() {
         expectKotlinDslPluginDeprecation()
         if (GradleContextualExecuter.isConfigCache()) {
             expectForUseAtConfigurationTimeDeprecation()
-        } else {
-            expectBuildScopeListenerDeprecation()
         }
 
         build("help").apply {
@@ -206,15 +204,7 @@ class KotlinDslPluginCrossVersionSmokeTest : AbstractKotlinIntegrationTest() {
         withBuildScript("""plugins { id("some") }""")
 
         executer.expectDocumentedDeprecationWarning("Internal class org.gradle.kotlin.dsl.assignment.internal.KotlinDslAssignment has been deprecated. This is scheduled to be removed in Gradle 9.0. The class was most likely loaded from `kotlin-dsl` plugin version 4.1.0 or earlier version used in the build: avoid specifying a version for `kotlin-dsl` plugin.")
-        executer.expectDocumentedDeprecationWarning(
-            "The org.gradle.api.plugins.Convention type has been deprecated. " +
-                "This is scheduled to be removed in Gradle 9.0. " +
-                "Consult the upgrading guide for further information: " +
-                "https://docs.gradle.org/current/userguide/upgrading_version_8.html#deprecated_access_to_conventions"
-        )
-        if (GradleContextualExecuter.isNotConfigCache()) {
-            expectBuildScopeListenerDeprecation()
-        }
+        expectConventionDeprecations()
 
         build("help").apply {
             assertThat(
@@ -227,11 +217,6 @@ class KotlinDslPluginCrossVersionSmokeTest : AbstractKotlinIntegrationTest() {
                 containsString("some!")
             )
         }
-    }
-
-    private
-    fun expectBuildScopeListenerDeprecation() {
-        executer.expectDocumentedDeprecationWarning("Listener registration using Gradle.addBuildListener() has been deprecated. This will fail with an error in Gradle 9.0. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_7.html#task_execution_events")
     }
 
     private

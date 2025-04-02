@@ -70,8 +70,13 @@ class AndroidTestProject implements TestProject {
 
     static String useKotlinLatestStableOrRcVersion(CrossVersionPerformanceTestRunner runner) {
         def version = KGP_VERSIONS.latestStableOrRC
+        configureForKotlinVersion(runner, version)
         runner.args.add("-DkotlinVersion=${ version}")
         version
+    }
+
+    static void configureForKotlinVersion(CrossVersionPerformanceTestRunner runner, String kotlinVersion) {
+        runner.args.add("-DkotlinVersion=${kotlinVersion}")
     }
 
     static String useAgpLatestStableOrRcVersion(CrossVersionPerformanceTestRunner runner) {
@@ -80,7 +85,7 @@ class AndroidTestProject implements TestProject {
         version
     }
 
-    private static void configureForAgpVersion(CrossVersionPerformanceTestRunner runner, String agpVersion) {
+    static void configureForAgpVersion(CrossVersionPerformanceTestRunner runner, String agpVersion) {
         runner.args.add("-DagpVersion=${agpVersion}")
 
         def javaVersion = AGP_VERSIONS.getMinimumJavaVersionFor(agpVersion)
@@ -91,6 +96,10 @@ class AndroidTestProject implements TestProject {
         if (minimumGradle != null) {
             runner.minimumBaseVersion = minimumGradle
         }
+    }
+
+    static String configureBuildToolsForAgpVersion(CrossVersionPerformanceTestRunner runner, String agpVersion) {
+        runner.args.add("-DbuildToolsVersion=${AGP_VERSIONS.getBuildToolsVersionFor(agpVersion)}")
     }
 
     static class JavaVersionMutator implements BuildMutator {
@@ -107,8 +116,14 @@ class AndroidTestProject implements TestProject {
         @Override
         void beforeScenario(ScenarioContext context) {
             def gradleProps = new File(invocation.projectDir, "gradle.properties")
-            gradleProps << "\norg.gradle.java.home=${buildJavaHome.absolutePath.replace("\\", "/")}\n"
-            gradleProps << "\nsystemProp.javaVersion=${javaVersion.majorVersion}\n"
+            gradleProps << """
+
+org.gradle.java.home=${buildJavaHome.absolutePath.replace("\\", "/")}
+systemProp.javaVersion=${javaVersion.majorVersion}
+org.gradle.java.installations.paths=${AvailableJavaHomes.getAvailableJvms().collect { it.javaHome.absolutePath }.join(",")}
+org.gradle.java.installations.auto-detect=false
+org.gradle.java.installations.auto-download=false
+"""
         }
     }
 

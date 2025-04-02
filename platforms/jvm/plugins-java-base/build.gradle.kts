@@ -41,10 +41,11 @@ dependencies {
 
     api(libs.groovy)
     api(libs.inject)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
-    implementation(projects.internalInstrumentationApi)
     implementation(projects.fileCollections)
+    implementation(projects.fileOperations)
+    implementation(projects.jvmServices)
     implementation(projects.logging)
     implementation(projects.platformBase)
     implementation(projects.reporting)
@@ -55,8 +56,6 @@ dependencies {
 
     implementation(libs.commonsLang)
     implementation(libs.guava)
-
-    runtimeOnly(projects.diagnostics)
 
     testImplementation(testFixtures(projects.core))
 

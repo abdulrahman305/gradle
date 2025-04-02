@@ -19,9 +19,13 @@ package org.gradle.api.internal.initialization;
 import org.gradle.api.Action;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.Plugin;
+import org.gradle.api.file.ProjectLayout;
+import org.gradle.api.initialization.SharedModelDefaults;
+import org.gradle.api.initialization.internal.SharedModelDefaultsInternal;
 import org.gradle.api.internal.plugins.DslObject;
 import org.gradle.api.internal.plugins.software.SoftwareType;
 import org.gradle.api.internal.tasks.properties.InspectionScheme;
+import org.gradle.api.problems.internal.InternalProblems;
 import org.gradle.internal.Cast;
 import org.gradle.internal.exceptions.DefaultMultiCauseException;
 import org.gradle.internal.properties.PropertyValue;
@@ -33,35 +37,53 @@ import org.gradle.plugin.software.internal.ModelDefault;
 import org.gradle.plugin.software.internal.ModelDefaultsHandler;
 import org.gradle.plugin.software.internal.SoftwareTypeImplementation;
 import org.gradle.plugin.software.internal.SoftwareTypeRegistry;
-
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ActionBasedModelDefaultsHandler implements ModelDefaultsHandler {
+
+    private final SharedModelDefaultsInternal sharedModelDefaults;
+    private final ProjectLayout projectLayout;
     private final SoftwareTypeRegistry softwareTypeRegistry;
     private final InspectionScheme inspectionScheme;
+    private final InternalProblems problems;
 
-    public ActionBasedModelDefaultsHandler(SoftwareTypeRegistry softwareTypeRegistry, InspectionScheme inspectionScheme) {
+    public ActionBasedModelDefaultsHandler(
+        SharedModelDefaults sharedModelDefaults,
+        ProjectLayout projectLayout,
+        SoftwareTypeRegistry softwareTypeRegistry,
+        InspectionScheme inspectionScheme,
+        InternalProblems problems
+    ) {
+        this.sharedModelDefaults = (SharedModelDefaultsInternal) sharedModelDefaults;
+        this.projectLayout = projectLayout;
         this.softwareTypeRegistry = softwareTypeRegistry;
         this.inspectionScheme = inspectionScheme;
+        this.problems = problems;
     }
 
     @Override
-    public <T> void apply(T target, String softwareTypeName, Plugin<? super T> plugin) {
+    public <T> void apply(T target, ClassLoaderScope classLoaderScope, String softwareTypeName, Plugin<?> plugin) {
         SoftwareTypeImplementation<?> softwareTypeImplementation = softwareTypeRegistry.getSoftwareTypeImplementations().get(softwareTypeName);
 
-        DefaultTypeValidationContext typeValidationContext = DefaultTypeValidationContext.withRootType(plugin.getClass(), false);
+        DefaultTypeValidationContext typeValidationContext = DefaultTypeValidationContext.withRootType(plugin.getClass(), false, problems);
         inspectionScheme.getPropertyWalker().visitProperties(
             plugin,
             typeValidationContext,
             new PropertyVisitor() {
                 @Override
                 public void visitSoftwareTypeProperty(String propertyName, PropertyValue value, Class<?> declaredPropertyType, SoftwareType softwareType) {
-                    softwareTypeImplementation.visitModelDefaults(
-                        Cast.uncheckedCast(ActionBasedDefault.class),
-                        executeActionVisitor(softwareTypeImplementation, value.call())
-                    );
+                    try {
+                        sharedModelDefaults.setProjectLayout(projectLayout);
+                        softwareTypeImplementation.visitModelDefaults(
+                            Cast.uncheckedCast(ActionBasedDefault.class),
+                            executeActionVisitor(softwareTypeImplementation, value.call())
+                        );
+                    } finally {
+                        sharedModelDefaults.clearProjectLayout();
+                    }
+
                 }
             }
         );

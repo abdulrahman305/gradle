@@ -23,8 +23,7 @@ import org.gradle.internal.metaobject.DynamicObject;
 import org.gradle.internal.metaobject.DynamicObjectUtil;
 import org.gradle.internal.reflect.Instantiator;
 import org.gradle.invocation.GradleLifecycleActionExecutor;
-
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Wrapper for {@link ProjectInternal} that has been accessed across projects, even in vintage mode.
@@ -87,31 +86,5 @@ public class LifecycleAwareProject extends MutableStateAccessAwareProject {
         }
 
         throw dynamicDelegate.methodMissingException(name, varargs);
-    }
-
-    @Override
-    public String toString() {
-        return delegate.toString();
-    }
-
-    @Override
-    public boolean equals(Object other) {
-        if (this == other) {
-            return true;
-        }
-        if (other == null) {
-            return false;
-        }
-        if (other instanceof LifecycleAwareProject) {
-            LifecycleAwareProject lifecycleAwareProject = (LifecycleAwareProject) other;
-            return delegate.equals(lifecycleAwareProject.delegate) && referrer.equals(lifecycleAwareProject.referrer);
-        } else {
-            return delegate.equals(other);
-        }
-    }
-
-    @Override
-    public int hashCode() {
-        return delegate.hashCode();
     }
 }

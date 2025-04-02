@@ -21,6 +21,7 @@ import org.gradle.api.internal.component.ComponentTypeRegistry;
 import org.gradle.api.internal.tasks.DefaultSourceSetContainer;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.plugins.jvm.internal.DefaultJvmPluginServices;
+import org.gradle.api.plugins.jvm.internal.JvmPluginServices;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.internal.service.Provides;
 import org.gradle.internal.service.ServiceRegistration;
@@ -39,7 +40,7 @@ public class JvmLanguageServices extends AbstractGradleModuleServices {
     @Override
     public void registerProjectServices(ServiceRegistration registration) {
         registration.addProvider(new ProjectScopeServices());
-        registration.add(DefaultJvmPluginServices.class);
+        registration.add(JvmPluginServices.class, DefaultJvmPluginServices.class);
     }
 
     private static class ProjectScopeServices implements ServiceRegistrationProvider {
@@ -50,6 +51,7 @@ public class JvmLanguageServices extends AbstractGradleModuleServices {
     }
 
     private static class ComponentRegistrationAction implements ServiceRegistrationProvider {
+        @Provides
         public void configure(ComponentTypeRegistry componentTypeRegistry) {
             componentTypeRegistry
                 .maybeRegisterComponentType(JvmLibrary.class)

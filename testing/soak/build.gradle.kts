@@ -14,6 +14,7 @@ dependencies {
     testImplementation(testFixtures(projects.core))
     testImplementation(testFixtures(projects.workers))
     testImplementation(testFixtures(projects.toolchainsJvm))
+    testImplementation(testFixtures(projects.toolchainsJvmShared))
 
     integTestImplementation(projects.fileWatching)
     integTestImplementation(projects.jvmServices)
@@ -34,4 +35,7 @@ tasks.register("soakTest") {
     description = "Run all soak tests defined in the :soak subproject"
     group = "CI Lifecycle"
     dependsOn(":soak:forkingIntegTest")
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

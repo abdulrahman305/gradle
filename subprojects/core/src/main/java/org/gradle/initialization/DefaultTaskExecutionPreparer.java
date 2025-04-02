@@ -22,8 +22,9 @@ import org.gradle.execution.EntryTaskSelector;
 import org.gradle.execution.plan.ExecutionPlan;
 import org.gradle.internal.buildtree.BuildModelParameters;
 import org.gradle.internal.operations.BuildOperationRunner;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
+import static org.gradle.configuration.DeferredProjectEvaluationCondition.skipEvaluationDuringProjectPreparation;
 
 public class DefaultTaskExecutionPreparer implements TaskExecutionPreparer {
     private final BuildOperationRunner buildOperationRunner;
@@ -45,7 +46,7 @@ public class DefaultTaskExecutionPreparer implements TaskExecutionPreparer {
         gradle.getOwner().getProjects().withMutableStateOfAllProjects(() -> {
             buildTaskScheduler.scheduleRequestedTasks(gradle, selector, plan);
 
-            if (buildModelParameters.isConfigureOnDemand() && gradle.isRootBuild()) {
+            if (skipEvaluationDuringProjectPreparation(buildModelParameters, gradle)) {
                 new ProjectsEvaluatedNotifier(buildOperationRunner).notify(gradle);
             }
         });

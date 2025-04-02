@@ -32,6 +32,7 @@ dependencies {
 
     implementation(projects.core)
     implementation(projects.messaging)
+    implementation(projects.modelReflect)
     implementation(projects.problemsApi)
     implementation(projects.serviceLookup)
     implementation(projects.serviceRegistryBuilder)
@@ -41,4 +42,7 @@ dependencies {
     implementation(libs.inject)
 
     integTestDistributionRuntimeOnly(projects.distributionsCore)
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

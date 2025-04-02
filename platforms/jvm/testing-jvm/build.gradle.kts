@@ -1,6 +1,5 @@
 plugins {
     id("gradlebuild.distribution.api-java")
-    id("gradlebuild.instrumented-java-project")
 }
 
 description = """JVM-specific testing functionality, including the Test type and support for configuring options for and detecting
@@ -11,41 +10,37 @@ This project is a implementation dependency of many other testing-related subpro
 dependency for any projects working directly with Test tasks.
 """
 
-errorprone {
-    disabledChecks.addAll(
-        "EmptyBlockTag", // 1 occurrences
-    )
-}
-
 dependencies {
-    api(projects.stdlibJavaExtensions)
-    api(projects.time)
     api(projects.baseServices)
     api(projects.buildOperations)
+    api(projects.buildProcessServices)
     api(projects.core)
     api(projects.coreApi)
+    api(projects.fileOperations)
+    api(projects.jvmServices)
     api(projects.logging)
     api(projects.messaging)
-    api(projects.processServices)
+    api(projects.modelCore)
     api(projects.reporting)
+    api(projects.stdlibJavaExtensions)
     api(projects.testingBase)
     api(projects.testingBaseInfrastructure)
+    api(projects.time)
     api(projects.toolchainsJvm)
     api(projects.toolchainsJvmShared)
-    api(projects.buildProcessServices)
 
     api(libs.asm)
     api(libs.groovy)
     api(libs.groovyXml)
     api(libs.inject)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
+    implementation(projects.classloaders)
     implementation(projects.concurrent)
     implementation(projects.serviceLookup)
     implementation(projects.fileTemp)
     implementation(projects.functional)
     implementation(projects.loggingApi)
-    implementation(projects.modelCore)
     implementation(projects.platformBase)
     implementation(projects.testingJvmInfrastructure)
 
@@ -56,7 +51,8 @@ dependencies {
     implementation(libs.slf4jApi)
 
     testImplementation(testFixtures(projects.core))
-    testImplementation(testFixtures(projects.modelCore))
+    testImplementation(testFixtures(projects.modelReflect))
+    testImplementation(testFixtures(projects.time))
 
     integTestImplementation(testFixtures(projects.testingBase))
     integTestImplementation(testFixtures(projects.languageGroovy))
@@ -77,3 +73,6 @@ packageCycles {
 }
 
 integTest.usesJavadocCodeSnippets = true
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

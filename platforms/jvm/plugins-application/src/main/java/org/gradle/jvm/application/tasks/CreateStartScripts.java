@@ -33,15 +33,14 @@ import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.TaskAction;
-import org.gradle.internal.deprecation.DeprecationLogger;
 import org.gradle.internal.instrumentation.api.annotations.ToBeReplacedByLazyProperty;
 import org.gradle.internal.jvm.DefaultModularitySpec;
 import org.gradle.internal.jvm.JavaModuleDetector;
 import org.gradle.jvm.application.scripts.ScriptGenerator;
 import org.gradle.util.internal.GUtil;
 import org.gradle.work.DisableCachingByDefault;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 import java.io.File;
 import java.util.Collections;
@@ -256,34 +255,6 @@ public abstract class CreateStartScripts extends ConventionTask {
     }
 
     /**
-     * The main class name used to start the Java application.
-     */
-    @Input
-    @Optional
-    @Nullable
-    @Deprecated
-    public String getMainClassName() {
-        DeprecationLogger.deprecateProperty(CreateStartScripts.class, "mainClassName")
-            .replaceWith("mainClass")
-            .willBeRemovedInGradle9()
-            .withDslReference()
-            .nagUser();
-
-        return mainClass.getOrNull();
-    }
-
-    @Deprecated
-    public void setMainClassName(@Nullable String mainClassName) {
-        DeprecationLogger.deprecateProperty(CreateStartScripts.class, "mainClassName")
-            .replaceWith("mainClass")
-            .willBeRemovedInGradle9()
-            .withDslReference()
-            .nagUser();
-
-        this.mainClass.set(mainClassName);
-    }
-
-    /**
      * The application's default JVM options. Defaults to an empty list.
      */
     @Nullable
@@ -411,7 +382,7 @@ public abstract class CreateStartScripts extends ConventionTask {
     }
 
     @Input
-    @ToBeReplacedByLazyProperty
+    @ToBeReplacedByLazyProperty(unreported = true, comment = "Skipped for report since method is protected")
     protected Iterable<String> getRelativeClasspath() {
         //a list instance is needed here, as org.gradle.internal.snapshot.ValueSnapshotter.processValue() does not support
         //serializing Iterators directly

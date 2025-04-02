@@ -15,7 +15,7 @@
  */
 
 plugins {
-    id("gradlebuild.internal.java")
+    id("gradlebuild.distribution.implementation-java")
 }
 
 dependencies {
@@ -23,9 +23,11 @@ dependencies {
 
     api(libs.asm)
     api(libs.asmTree)
+    api(libs.jspecify)
     api(libs.jsr305)
 
     implementation(projects.stdlibJavaExtensions)
 
-    runtimeOnly(libs.groovy)
+    implementation(libs.groovy)
 }
+

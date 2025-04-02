@@ -25,12 +25,11 @@ class JavaBasePluginIntegrationTest extends AbstractIntegrationSpec {
         settingsFile << """
             include 'main', 'tests'
         """
-        buildFile << """
-            project(':main') {
-                apply plugin: 'java'
-            }
-            project(':tests') {
-                apply plugin: 'java-base'
+        buildFile("main/build.gradle", """
+            apply plugin: 'java'
+        """)
+        buildFile("tests/build.gradle", """
+            apply plugin: 'java-base'
                 sourceSets {
                     unitTest {
                     }
@@ -38,8 +37,7 @@ class JavaBasePluginIntegrationTest extends AbstractIntegrationSpec {
                 dependencies {
                     unitTestImplementation project(':main')
                 }
-            }
-        """
+        """)
         file("main/src/main/java/Main.java") << """public class Main { }"""
         file("tests/src/unitTest/java/Test.java") << """public class Test { Main main = null; }"""
 
@@ -137,5 +135,20 @@ class JavaBasePluginIntegrationTest extends AbstractIntegrationSpec {
 
         expect:
         succeeds "verify"
+    }
+
+    def "ReportingExtension#getBaseDir is deprecated"() {
+        buildFile << """
+            plugins {
+                id("java-base")
+            }
+
+            def reporting = project.extensions.getByType(ReportingExtension)
+            println(reporting.baseDir)
+        """
+
+        expect:
+        executer.expectDocumentedDeprecationWarning("The ReportingExtension.getBaseDir() method has been deprecated. This is scheduled to be removed in Gradle 9.0. Please use the getBaseDirectory() property method instead. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#reporting-base-dir")
+        succeeds("help")
     }
 }

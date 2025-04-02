@@ -16,14 +16,13 @@
 
 package org.gradle.internal.buildconfiguration;
 
-import org.gradle.api.JavaVersion;
-
 public class DaemonJvmPropertiesDefaults {
     public static final String DAEMON_JVM_PROPERTIES_FILE = "gradle/gradle-daemon-jvm.properties";
 
     public static final String TOOLCHAIN_VERSION_PROPERTY = "toolchainVersion";
     public static final String TOOLCHAIN_VENDOR_PROPERTY = "toolchainVendor";
     public static final String TOOLCHAIN_IMPLEMENTATION_PROPERTY = "toolchainImplementation";
-
-    public static final JavaVersion TOOLCHAIN_VERSION = JavaVersion.current();
+    public static final String TOOLCHAIN_URL_PROPERTY_PREFIX = "toolchainUrl";
+    public static final String TOOLCHAIN_URL_PROPERTY_FORMAT = TOOLCHAIN_URL_PROPERTY_PREFIX + ".%s.%s";
+    public static final String TOOLCHAIN_NATIVE_IMAGE_CAPABLE_PROPERTY = "toolchainNativeImageCapable";
 }

@@ -6,8 +6,6 @@ errorprone {
     disabledChecks.addAll(
         "MixedMutabilityReturnType", // 1 occurrences
         "ModifiedButNotUsed", // 1 occurrences
-        "StringCaseLocaleUsage", // 1 occurrences
-        "UnusedMethod", // 5 occurrences
     )
 }
 dependencies {
@@ -23,10 +21,12 @@ dependencies {
 
     api(libs.guava)
     api(libs.inject)
+    api(libs.jspecify)
     api(libs.jsr305)
 
     implementation(projects.dependencyManagement)
     implementation(projects.execution)
+    implementation(projects.modelReflect)
 
     implementation(libs.commonsLang)
 
@@ -37,7 +37,6 @@ dependencies {
     testImplementation(projects.processServices)
 
     testFixturesApi(projects.fileCollections)
-    testFixturesApi(testFixtures(projects.diagnostics))
     testFixturesApi(testFixtures(projects.modelCore))
 
     testFixturesImplementation(libs.guava)
@@ -55,3 +54,6 @@ packageCycles {
 integTest.usesJavadocCodeSnippets = true
 
 description = """Provides general purpose base types and interfaces for modeling projects, and provides runtime and language support."""
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

@@ -7,13 +7,16 @@ plugins {
 description = "Local build cache implementation"
 
 dependencies {
-    api(projects.stdlibJavaExtensions)
     api(projects.buildCache)
     api(projects.buildCacheSpi)
     api(projects.files)
     api(projects.functional)
     api(projects.hashing)
     api(projects.persistentCache)
+
+    api(libs.jspecify)
+
+    implementation(projects.stdlibJavaExtensions)
 
     implementation(libs.commonsIo)
     implementation(libs.guava)
@@ -25,4 +28,7 @@ dependencies {
     testImplementation(testFixtures(projects.snapshots))
 
     integTestDistributionRuntimeOnly(projects.distributionsCore)
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

@@ -16,13 +16,14 @@
 
 package org.gradle.internal.build.event.types;
 
-import org.gradle.api.NonNullApi;
 import org.gradle.tooling.internal.protocol.InternalProblemGroup;
 import org.gradle.tooling.internal.protocol.InternalProblemId;
+import org.jspecify.annotations.NullMarked;
 
 import java.io.Serializable;
+import java.util.Objects;
 
-@NonNullApi
+@NullMarked
 public class DefaultProblemId implements InternalProblemId, Serializable {
 
     private final String name;
@@ -48,5 +49,22 @@ public class DefaultProblemId implements InternalProblemId, Serializable {
     @Override
     public InternalProblemGroup getGroup() {
         return group;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof DefaultProblemId)) {
+            return false;
+        }
+        DefaultProblemId that = (DefaultProblemId) o;
+        return Objects.equals(name, that.name) && Objects.equals(displayName, that.displayName) && Objects.equals(group, that.group);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, displayName, group);
     }
 }

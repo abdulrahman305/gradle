@@ -23,22 +23,23 @@ description = "Contains the Application plugin, and its supporting classes.  Thi
 dependencies {
     api(projects.core)
     api(projects.coreApi)
+    api(projects.jvmServices)
+    api(projects.modelCore)
 
     api(libs.inject)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
-    implementation(projects.internalInstrumentationApi)
-    implementation(projects.stdlibJavaExtensions)
     implementation(projects.baseServices)
+    implementation(projects.fileOperations)
     implementation(projects.languageJava)
     implementation(projects.languageJvm)
     implementation(projects.logging)
-    implementation(projects.modelCore)
     implementation(projects.platformJvm)
     implementation(projects.pluginsDistribution)
     implementation(projects.pluginsJava)
     implementation(projects.pluginsJavaBase)
     implementation(projects.processServices)
+    implementation(projects.stdlibJavaExtensions)
     implementation(projects.toolchainsJvm)
     implementation(projects.toolchainsJvmShared)
 

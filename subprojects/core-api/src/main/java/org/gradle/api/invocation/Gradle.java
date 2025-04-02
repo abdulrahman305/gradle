@@ -33,8 +33,8 @@ import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.plugins.PluginAware;
 import org.gradle.api.services.BuildServiceRegistry;
 import org.gradle.internal.HasInternalProtocol;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.io.File;
 import java.util.Collection;
 
@@ -66,9 +66,9 @@ public interface Gradle extends PluginAware, ExtensionAware {
      *
      * This directory is the directory containing the Gradle distribution executing this build.
      * <p>
-     * When using the “Gradle Daemon”, this may not be the same Gradle distribution that the build was started with.
+     * When using the "Gradle Daemon", this may not be the same Gradle distribution that the build was started with.
      * If an existing daemon process is running that is deemed compatible (e.g. has the desired JVM characteristics)
-     * then this daemon may be used instead of starting a new process and it may have been started from a different “gradle home”.
+     * then this daemon may be used instead of starting a new process and it may have been started from a different "gradle home".
      * However, it is guaranteed to be the same version of Gradle. For more information on the Gradle Daemon, please consult the
      * <a href="https://docs.gradle.org/current/userguide/gradle_daemon.html" target="_top">User Manual</a>.
      *
@@ -306,9 +306,7 @@ public interface Gradle extends PluginAware, ExtensionAware {
      * The listener is notified of events which occur during the execution of the build.
      *
      * @param buildListener The listener to add.
-     * @deprecated This method is not supported when configuration caching is enabled.
      */
-    @Deprecated
     void addBuildListener(BuildListener buildListener);
 
     /**
@@ -332,18 +330,14 @@ public interface Gradle extends PluginAware, ExtensionAware {
      * </ul>
      *
      * @param listener The listener to add. Does nothing if this listener has already been added.
-     * @deprecated This method is not supported when configuration caching is enabled.
      */
-    @Deprecated
     void addListener(Object listener);
 
     /**
      * Removes the given listener from this build.
      *
      * @param listener The listener to remove. Does nothing if this listener has not been added.
-     * @deprecated This method is not supported when configuration caching is enabled.
      */
-    @Deprecated
     void removeListener(Object listener);
 
     /**
@@ -358,7 +352,7 @@ public interface Gradle extends PluginAware, ExtensionAware {
      * provides with your own implementation, for certain types of events.
      *
      * @param logger The logger to use.
-     * @deprecated This method is not supported when configuration caching is enabled.
+     * @deprecated Will be removed in Gradle 9. Logging customization through listeners is no longer supported.
      */
     @Deprecated
     void useLogger(Object logger);

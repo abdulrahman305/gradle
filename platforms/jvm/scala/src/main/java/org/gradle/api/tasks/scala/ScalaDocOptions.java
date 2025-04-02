@@ -17,16 +17,16 @@ package org.gradle.api.tasks.scala;
 
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Optional;
-import org.gradle.api.tasks.compile.AbstractOptions;
 import org.gradle.internal.instrumentation.api.annotations.ToBeReplacedByLazyProperty;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
+import java.io.Serializable;
 import java.util.List;
 
 /**
  * Options for the ScalaDoc tool.
  */
-public abstract class ScalaDocOptions extends AbstractOptions {
+public abstract class ScalaDocOptions implements Serializable {
     private boolean deprecation = true;
     private boolean unchecked = true;
     private String windowTitle;
@@ -182,9 +182,4 @@ public abstract class ScalaDocOptions extends AbstractOptions {
     public void setAdditionalParameters(@Nullable List<String> additionalParameters) {
         this.additionalParameters = additionalParameters;
     }
-
-    private String toOnOffString(boolean value) {
-        return value ? "on" : "off";
-    }
-
 }

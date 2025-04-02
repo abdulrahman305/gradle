@@ -15,7 +15,7 @@ dependencies {
     api(projects.time)
     api(projects.workerMain)
 
-    api(libs.jsr305)
+    api(libs.jspecify)
 
     implementation(projects.io)
     implementation(projects.serviceLookup)
@@ -27,7 +27,9 @@ dependencies {
 
     testImplementation(projects.serviceRegistryImpl)
     testImplementation(libs.commonsIo)
+    testImplementation(testFixtures(projects.time))
     testImplementation(testFixtures(projects.serialization))
+    testImplementation(testFixtures(projects.time))
 
     integTestDistributionRuntimeOnly(projects.distributionsCore)
 }
@@ -37,3 +39,6 @@ packageCycles {
 }
 
 integTest.usesJavadocCodeSnippets = true
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

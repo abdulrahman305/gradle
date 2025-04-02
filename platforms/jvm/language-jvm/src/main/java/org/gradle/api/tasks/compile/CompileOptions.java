@@ -17,6 +17,7 @@
 package org.gradle.api.tasks.compile;
 
 import com.google.common.collect.ImmutableList;
+import org.gradle.api.Action;
 import org.gradle.api.Incubating;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.FileCollection;
@@ -44,13 +45,13 @@ import org.gradle.internal.instrumentation.api.annotations.ReplacesEagerProperty
 import org.gradle.internal.instrumentation.api.annotations.ToBeReplacedByLazyProperty;
 import org.gradle.process.CommandLineArgumentProvider;
 import org.gradle.util.internal.CollectionUtils;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 import java.io.File;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import static org.gradle.internal.instrumentation.api.annotations.ReplacedAccessor.AccessorType.GETTER;
 import static org.gradle.internal.instrumentation.api.annotations.ReplacedAccessor.AccessorType.SETTER;
@@ -59,7 +60,7 @@ import static org.gradle.internal.instrumentation.api.annotations.ReplacesEagerP
 /**
  * Main options for Java compilation.
  */
-public abstract class CompileOptions extends AbstractOptions {
+public abstract class CompileOptions implements Serializable {
     private static final long serialVersionUID = 0;
 
     private boolean failOnError = true;
@@ -244,9 +245,27 @@ public abstract class CompileOptions extends AbstractOptions {
 
     /**
      * Sets options for generating debugging information.
+     *
+     * @deprecated Setting a new instance of this property is unnecessary. This method will be removed in Gradle 9.0. Use {@link #debugOptions(Action)} instead.
      */
+    @Deprecated
     public void setDebugOptions(DebugOptions debugOptions) {
+        DeprecationLogger.deprecateMethod(CompileOptions.class, "setDebugOptions(DebugOptions)")
+            .replaceWith("debugOptions(Action)")
+            .withContext("Setting a new instance of debugOptions is unnecessary.")
+            .willBeRemovedInGradle9()
+            .withUpgradeGuideSection(8, "deprecated_nested_properties_setters")
+            .nagUser();
         this.debugOptions = debugOptions;
+    }
+
+    /**
+     * Execute the given action against {@link #getDebugOptions()}.
+     *
+     * @since 8.11
+     */
+    public void debugOptions(Action<? super DebugOptions> action) {
+        action.execute(debugOptions);
     }
 
     /**
@@ -279,9 +298,27 @@ public abstract class CompileOptions extends AbstractOptions {
 
     /**
      * Sets options for running the compiler in a child process.
+     *
+     * @deprecated Setting a new instance of this property is unnecessary. This method will be removed in Gradle 9.0. Use {@link #forkOptions(Action)} instead.
      */
+    @Deprecated
     public void setForkOptions(ForkOptions forkOptions) {
+        DeprecationLogger.deprecateMethod(CompileOptions.class, "setForkOptions(ForkOptions)")
+            .replaceWith("forkOptions(Action)")
+            .withContext("Setting a new instance of forkOptions is unnecessary.")
+            .willBeRemovedInGradle9()
+            .withUpgradeGuideSection(8, "deprecated_nested_properties_setters")
+            .nagUser();
         this.forkOptions = forkOptions;
+    }
+
+    /**
+     * Execute the given action against {@link #getForkOptions()}.
+     *
+     * @since 8.11
+     */
+    public void forkOptions(Action<? super ForkOptions> action) {
+        action.execute(forkOptions);
     }
 
     /**
@@ -353,7 +390,7 @@ public abstract class CompileOptions extends AbstractOptions {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         builder.addAll(CollectionUtils.stringize(getCompilerArgs()));
         for (CommandLineArgumentProvider compilerArgumentProvider : getCompilerArgumentProviders()) {
-            builder.addAll(compilerArgumentProvider.asArguments());
+            builder.addAll(CollectionUtils.toStringList(compilerArgumentProvider.asArguments()));
         }
         return builder.build();
     }
@@ -375,26 +412,6 @@ public abstract class CompileOptions extends AbstractOptions {
      */
     public void setCompilerArgs(List<String> compilerArgs) {
         this.compilerArgs = compilerArgs;
-    }
-
-    /**
-     * Convenience method to set {@link ForkOptions} with named parameter syntax.
-     * Calling this method will set {@code fork} to {@code true}.
-     */
-    public CompileOptions fork(Map<String, Object> forkArgs) {
-        fork = true;
-        forkOptions.define(forkArgs);
-        return this;
-    }
-
-    /**
-     * Convenience method to set {@link DebugOptions} with named parameter syntax.
-     * Calling this method will set {@code debug} to {@code true}.
-     */
-    public CompileOptions debug(Map<String, Object> debugArgs) {
-        debug = true;
-        debugOptions.define(debugArgs);
-        return this;
     }
 
     /**

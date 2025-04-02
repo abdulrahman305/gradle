@@ -20,11 +20,9 @@ import gradlebuild.basics.BuildEnvironment.isCiServer
 import gradlebuild.basics.BuildEnvironment.isCodeQl
 import gradlebuild.basics.BuildEnvironment.isGhActions
 import gradlebuild.basics.BuildEnvironment.isTeamCity
-import gradlebuild.basics.BuildEnvironment.isTravis
 import gradlebuild.basics.buildBranch
 import gradlebuild.basics.environmentVariable
 import gradlebuild.basics.isPromotionBuild
-import gradlebuild.basics.isRetryBuild
 import gradlebuild.basics.kotlindsl.execAndGetStdoutIgnoringError
 import gradlebuild.basics.logicalBranch
 import gradlebuild.basics.predictiveTestSelectionEnabled
@@ -50,20 +48,17 @@ plugins {
     id("gradlebuild.module-identity")
 }
 
-val serverUrl = "https://ge.gradle.org"
-val gitCommitName = "gitCommitId"
-val tcBuildTypeName = "tcBuildType"
-
 // We can not use plugin {} because this is registered by a settings plugin.
 // We do 'findByType' to make this script compile in pre-compiled script compilation.
 // TODO to avoid the above, turn this into a settings plugin
-val buildScan = extensions.findByType<DevelocityConfiguration>()?.buildScan
+val develocity = extensions.findByType<DevelocityConfiguration>()
+val buildScan = develocity?.buildScan
 inline fun buildScan(configure: BuildScanConfiguration.() -> Unit) {
     buildScan?.apply(configure)
 }
 
-extractCiData()
-extractWatchFsData()
+develocity?.extractCiData()
+buildScan?.extractWatchFsData()
 
 buildScan {
     val testDistributionEnabled = project.testDistributionEnabled
@@ -89,23 +84,49 @@ if ((project.gradle as GradleInternal).services.get(BuildType::class.java) != Bu
     buildScan?.tag("SYNC")
 }
 
-fun isEc2Agent() = InetAddress.getLocalHost().hostName.startsWith("ip-")
+fun DevelocityConfiguration.extractCiData() {
+    fun isEc2Agent() = InetAddress.getLocalHost().hostName.startsWith("ip-")
 
-fun Project.extractCiData() {
+    fun String.urlEncode() = URLEncoder.encode(this, Charsets.UTF_8.name())
+
+    fun DevelocityConfiguration.customValueSearchUrl(search: Map<String, String>): String {
+        val query = search.map { (name, value) ->
+            "search.names=${name.urlEncode()}&search.values=${value.urlEncode()}"
+            // "search.names=${urlEncode(name)}&search.values=${urlEncode(value)}"
+        }.joinToString("&")
+
+        return "${server.get()}/scans?$query"
+    }
+
+    fun BuildScanConfiguration.setCompileAllScanSearch(commitId: String) {
+        link("CI CompileAll Scan", customValueSearchUrl(mapOf("gitCommitId" to commitId)) + "&search.tags=CompileAll")
+    }
+
     if (isCiServer) {
         buildScan {
+            val execOps = serviceOf<ExecOperations>()
             background {
-                setCompileAllScanSearch(execAndGetStdoutIgnoringError("git", "rev-parse", "--verify", "HEAD"))
+                setCompileAllScanSearch(execOps.execAndGetStdoutIgnoringError("git", "rev-parse", "--verify", "HEAD"))
             }
             if (isEc2Agent()) {
                 tag("EC2")
+                safeAddSystemPropertyToBuildScan(this, "EC2AmiId", "ec2.ami-id")
+                safeAddSystemPropertyToBuildScan(this, "EC2InstanceType", "ec2.instance-type")
+                safeAddSystemPropertyToBuildScan(this, "EC2InstanceId", "ec2.instance-id")
+                safeAddSystemPropertyToBuildScan(this, "EC2CloudProfileId", "cloud.profile_id")
             }
             if (isGhActions) {
                 tag("GH_ACTION")
             }
             whenEnvIsSet("BUILD_TYPE_ID") { buildType ->
+                val tcBuildTypeName = "tcBuildType"
                 value(tcBuildTypeName, buildType)
                 link("Build Type Scans", customValueSearchUrl(mapOf(tcBuildTypeName to buildType)))
+            }
+            System.getProperty("buildScan.PartOf")?.let {
+                it.toString().split(",").forEach { partOf ->
+                    value("PartOf", partOf)
+                }
             }
         }
     }
@@ -122,11 +143,15 @@ fun Project.extractCiData() {
             }
             buildFinished {
                 println("##teamcity[setParameter name='env.GRADLE_RUNNER_FINISHED' value='true']")
-                if (failures.isEmpty() && isRetryBuild) {
-                    println("##teamcity[buildStatus status='SUCCESS' text='Retried build succeeds']")
-                }
             }
         }
+    }
+}
+
+fun Project.safeAddSystemPropertyToBuildScan(buildScan: BuildScanConfiguration, customValueName: String, propertyName: String) {
+    val propertyValue = findProperty(propertyName)
+    if (propertyValue != null) {
+        buildScan.value(customValueName, propertyValue.toString())
     }
 }
 
@@ -137,9 +162,9 @@ fun BuildScanConfiguration.whenEnvIsSet(envName: String, action: BuildScanConfig
     }
 }
 
-fun Project.extractWatchFsData() {
+fun BuildScanConfiguration.extractWatchFsData() {
     val listenerManager = gradle.serviceOf<BuildOperationListenerManager>()
-    buildScan?.background {
+    background {
         listenerManager.addListener(FileSystemWatchingBuildOperationListener(listenerManager, this))
     }
 }
@@ -169,19 +194,3 @@ open class FileSystemWatchingBuildOperationListener(private val buildOperationLi
         }
     }
 }
-
-fun BuildScanConfiguration.setCompileAllScanSearch(commitId: String) {
-    if (!isTravis) {
-        link("CI CompileAll Scan", customValueSearchUrl(mapOf(gitCommitName to commitId)) + "&search.tags=CompileAll")
-    }
-}
-
-fun customValueSearchUrl(search: Map<String, String>): String {
-    val query = search.map { (name, value) ->
-        "search.names=${name.urlEncode()}&search.values=${value.urlEncode()}"
-    }.joinToString("&")
-
-    return "$serverUrl/scans?$query"
-}
-
-fun String.urlEncode() = URLEncoder.encode(this, Charsets.UTF_8.name())

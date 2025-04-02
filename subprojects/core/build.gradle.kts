@@ -1,6 +1,5 @@
 plugins {
     id("gradlebuild.distribution.api-java")
-    id("gradlebuild.instrumented-java-project")
 }
 
 description = "Public and internal 'core' Gradle APIs with implementation"
@@ -35,51 +34,34 @@ val testInterceptorsImplementation: Configuration by configurations.getting {
 
 errorprone {
     disabledChecks.addAll(
-        "BadInstanceof", // 6 occurrences (this is from generated code)
         "DefaultCharset", // 4 occurrences
         "EmptyBlockTag", // 4 occurrences
         "Finally", // 1 occurrences
         "HidingField", // 1 occurrences
         "IdentityHashMapUsage", // 1 occurrences
-        "ImmutableEnumChecker", // 2 occurrences
         "InconsistentCapitalization", // 2 occurrences
         "InlineFormatString", // 2 occurrences
         "InlineMeSuggester", // 1 occurrences
-        "InvalidBlockTag", // 1 occurrences
-        "InvalidInlineTag", // 1 occurrences
-        "MissingCasesInEnumSwitch", // 1 occurrences
         "MixedMutabilityReturnType", // 1 occurrences
         "ModifyCollectionInEnhancedForLoop", // 1 occurrences
         "MutablePublicArray", // 2 occurrences
         "NonApiType", // 1 occurrences
         "NonCanonicalType", // 16 occurrences
-        "NotJavadoc", // 1 occurrences
-        "OperatorPrecedence", // 5 occurrences
         "OptionalMapUnusedValue", // 1 occurrences
         "ProtectedMembersInFinalClass", // 1 occurrences
         "ReferenceEquality", // 2 occurrences
         "ReturnValueIgnored", // 1 occurrences
         "SameNameButDifferent", // 11 occurrences
         "StreamResourceLeak", // 6 occurrences
-        "StringCaseLocaleUsage", // 11 occurrences
         "TypeParameterShadowing", // 1 occurrences
         "TypeParameterUnusedInFormals", // 2 occurrences
         "UndefinedEquals", // 1 occurrences
-        "UnrecognisedJavadocTag", // 1 occurrences
         "UnusedMethod", // 18 occurrences
-        "UnusedVariable", // 8 occurrences
     )
 }
 
 dependencies {
     api(projects.baseAsm)
-    api(projects.concurrent)
-    api(projects.instrumentationAgentServices)
-    api(projects.serialization)
-    api(projects.serviceLookup)
-    api(projects.serviceProvider)
-    api(projects.stdlibJavaExtensions)
-    api(projects.time)
     api(projects.baseServices)
     api(projects.baseServicesGroovy)
     api(projects.buildCache)
@@ -87,52 +69,71 @@ dependencies {
     api(projects.buildCacheLocal)
     api(projects.buildCachePackaging)
     api(projects.buildCacheSpi)
+    api(projects.buildInitSpecs)
     api(projects.buildOperations)
     api(projects.buildOption)
+    api(projects.buildProcessServices)
+    api(projects.classloaders)
     api(projects.cli)
+    api(projects.concurrent)
     api(projects.coreApi)
     api(projects.declarativeDslApi)
     api(projects.enterpriseLogging)
     api(projects.enterpriseOperations)
     api(projects.execution)
     api(projects.fileCollections)
+    api(projects.fileOperations)
     api(projects.fileTemp)
     api(projects.fileWatching)
     api(projects.files)
     api(projects.functional)
     api(projects.hashing)
+    api(projects.instrumentationAgentServices)
+    api(projects.instrumentationReporting)
     api(projects.internalInstrumentationApi)
     api(projects.jvmServices)
     api(projects.logging)
     api(projects.loggingApi)
     api(projects.messaging)
     api(projects.modelCore)
+    api(projects.modelReflect)
     api(projects.native)
     api(projects.normalizationJava)
     api(projects.persistentCache)
     api(projects.problemsApi)
+    api(projects.processMemoryServices)
     api(projects.processServices)
+    api(projects.requestHandlerWorker)
     api(projects.resources)
+    api(projects.serialization)
+    api(projects.serviceLookup)
+    api(projects.serviceProvider)
     api(projects.snapshots)
+    api(projects.stdlibJavaExtensions)
+    api(projects.time)
+    api(projects.versionedCache)
     api(projects.workerMain)
-    api(projects.buildProcessServices)
 
     api(libs.ant)
     api(libs.asm)
     api(libs.asmTree)
-    api(libs.commonsCompress)
     api(libs.groovy)
     api(libs.guava)
     api(libs.inject)
+    api(libs.jspecify)
     api(libs.jsr305)
     api(libs.nativePlatform)
 
+    implementation(projects.buildOperationsTrace)
     implementation(projects.io)
     implementation(projects.inputTracking)
     implementation(projects.modelGroovy)
+    implementation(projects.problemsRendering)
     implementation(projects.serviceRegistryBuilder)
+    implementation(projects.wrapperShared)
 
     implementation(libs.asmCommons)
+    implementation(libs.commonsCompress)
     implementation(libs.commonsIo)
     implementation(libs.commonsLang)
     implementation(libs.commonsLang3)
@@ -140,7 +141,6 @@ dependencies {
     implementation(libs.fastutil)
     implementation(libs.groovyAnt)
     implementation(libs.groovyJson)
-    implementation(libs.groovyTemplates)
     implementation(libs.groovyXml)
     implementation(libs.slf4jApi)
     implementation(libs.tomlj) {
@@ -167,6 +167,7 @@ dependencies {
     // TODO investigate why we depend on SSHD as a platform for internal-integ-testing
     runtimeOnly(libs.antJunit)
 
+    testImplementation(projects.buildInit)
     testImplementation(projects.platformJvm)
     testImplementation(projects.platformNative)
     testImplementation(projects.testingBase)
@@ -263,11 +264,13 @@ dependencies {
     testImplementation(testFixtures(projects.coreApi))
     testImplementation(testFixtures(projects.messaging))
     testImplementation(testFixtures(projects.modelCore))
+    testImplementation(testFixtures(projects.modelReflect))
     testImplementation(testFixtures(projects.logging))
     testImplementation(testFixtures(projects.baseServices))
-    testImplementation(testFixtures(projects.diagnostics))
+    testImplementation(testFixtures(projects.baseDiagnostics))
     testImplementation(testFixtures(projects.snapshots))
     testImplementation(testFixtures(projects.execution))
+    testImplementation(testFixtures(projects.time))
 
     integTestImplementation(projects.workers)
     integTestImplementation(projects.dependencyManagement)
@@ -312,11 +315,11 @@ tasks.test {
 }
 
 tasks.compileTestGroovy {
-    groovyOptions.fork("memoryInitialSize" to "128M", "memoryMaximumSize" to "1G")
-}
-
-tasks.isolatedProjectsIntegTest {
-    enabled = true
+    groovyOptions.isFork = true
+    groovyOptions.forkOptions.run {
+        memoryInitialSize = "128M"
+        memoryMaximumSize = "1G"
+    }
 }
 
 integTest.usesJavadocCodeSnippets = true

@@ -93,7 +93,8 @@ class ResolvePOMIntegrationTest extends AbstractIntegrationSpec {
                 artifactFiles.from {
                     configurations.getByName("compileClasspath").getResolvedConfiguration()
                         .getLenientConfiguration()
-                        .getFiles()
+                        .getArtifacts()
+                        .collect { getFile() }
                 }
             }
         """

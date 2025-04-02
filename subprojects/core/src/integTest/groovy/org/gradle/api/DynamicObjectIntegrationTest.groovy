@@ -17,6 +17,7 @@ package org.gradle.api
 
 import org.gradle.integtests.fixtures.AbstractIntegrationSpec
 import org.gradle.integtests.fixtures.ToBeFixedForConfigurationCache
+import org.gradle.integtests.fixtures.executer.GradleContextualExecuter
 import org.gradle.test.precondition.Requires
 import org.gradle.test.preconditions.IntegTestPreconditions
 import spock.lang.Issue
@@ -72,6 +73,7 @@ class DynamicObjectIntegrationTest extends AbstractIntegrationSpec {
         )
 
         expectConventionTypeDeprecationWarnings()
+        expectTaskProjectDeprecation()
 
         expect:
         succeeds("testTask")
@@ -109,6 +111,7 @@ class DynamicObjectIntegrationTest extends AbstractIntegrationSpec {
         )
 
         expectConventionTypeDeprecationWarnings()
+        expectTaskProjectDeprecation()
 
         expect:
         succeeds("testTask")
@@ -128,7 +131,7 @@ class ConventionBean {
 }
 '''
 
-        expectConventionTypeDeprecationWarnings()
+        expectConventionTypeDeprecationWarnings(GradleContextualExecuter.isolatedProjects ? 2 : 1)
 
         expect:
         succeeds()
@@ -202,9 +205,6 @@ assert 'overridden value' == global
                 test('::name:') {
                     ext.custom = 'value';
                 }
-                test(module('::other')) {
-                    ext.custom = 'value';
-                }
                 test(project(':')) {
                     ext.custom = 'value';
                 }
@@ -239,7 +239,6 @@ assert 'overridden value' == global
 
 
         expect:
-        executer.expectDocumentedDeprecationWarning("Declaring client module dependencies has been deprecated. This is scheduled to be removed in Gradle 9.0. Please use component metadata rules instead. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#declaring_client_module_dependencies")
         succeeds("defaultTask")
     }
 
@@ -267,9 +266,6 @@ assert 'overridden value' == global
                 test('::name:') {
                     convention.plugins.custom = new Extension()
                 }
-                test(module('::other')) {
-                    convention.plugins.custom = new Extension()
-                }
                 test(project(':')) {
                     convention.plugins.custom = new Extension()
                 }
@@ -293,10 +289,9 @@ assert 'overridden value' == global
             }
 '''
 
-        expectConventionTypeDeprecationWarnings(9)
+        expectConventionTypeDeprecationWarnings(8)
 
         expect:
-        executer.expectDocumentedDeprecationWarning("Declaring client module dependencies has been deprecated. This is scheduled to be removed in Gradle 9.0. Please use component metadata rules instead. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#declaring_client_module_dependencies")
         succeeds("defaultTask")
     }
 
@@ -324,9 +319,6 @@ assert 'overridden value' == global
                 test('::name:') {
                     extensions.test = new Extension()
                 }
-                test(module('::other')) {
-                    extensions.test = new Extension()
-                }
                 test(project(':')) {
                     extensions.test = new Extension()
                 }
@@ -352,7 +344,6 @@ assert 'overridden value' == global
 
 
         expect:
-        executer.expectDocumentedDeprecationWarning("Declaring client module dependencies has been deprecated. This is scheduled to be removed in Gradle 9.0. Please use component metadata rules instead. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#declaring_client_module_dependencies")
         succeeds("defaultTask")
     }
 
@@ -379,6 +370,16 @@ assert 'overridden value' == global
             assert test.prop == 'new value'
 '''
 
+        executer.expectDocumentedDeprecationWarning(
+            "Properties should be assigned using the 'propName = value' syntax. Setting a property via the Gradle-generated 'propName value' or 'propName(value)' syntax in Groovy DSL has been deprecated. " +
+                "This is scheduled to be removed in Gradle 10.0. Use assignment ('description = <value>') instead. " +
+                "Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#groovy_space_assignment_syntax"
+        )
+        executer.expectDocumentedDeprecationWarning(
+            "Properties should be assigned using the 'propName = value' syntax. Setting a property via the Gradle-generated 'propName value' or 'propName(value)' syntax in Groovy DSL has been deprecated. " +
+                "This is scheduled to be removed in Gradle 10.0. Use assignment ('prop = <value>') instead. " +
+                "Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#groovy_space_assignment_syntax"
+        )
 
         expect:
         succeeds("test")
@@ -445,6 +446,7 @@ assert 'overridden value' == global
         '''
 
         expect:
+        expectTaskProjectDeprecation(3)
         succeeds("test")
     }
 
@@ -914,7 +916,7 @@ task print(type: MyTask) {
             }
         """
 
-        expectConventionTypeDeprecationWarnings(4)
+        expectConventionTypeDeprecationWarnings(GradleContextualExecuter.isolatedProjects ? 8 : 4)
 
         expect:
         succeeds()
@@ -1045,12 +1047,12 @@ task print(type: MyTask) {
         succeeds()
     }
 
-    @ToBeFixedForConfigurationCache(because = "Task.getProject() during execution")
     def findPropertyShouldReturnValueIfFound() {
         buildFile """
             task run {
+                def property = project.findProperty('foundProperty')
                 doLast {
-                    assert project.findProperty('foundProperty') == 'foundValue'
+                    assert property == 'foundValue'
                 }
             }
         """
@@ -1060,12 +1062,12 @@ task print(type: MyTask) {
         succeeds("run")
     }
 
-    @ToBeFixedForConfigurationCache(because = "Task.getProject() during execution")
     def findPropertyShouldReturnNullIfNotFound() {
         buildFile """
             task run {
+                def property = project.findProperty('notFoundProperty')
                 doLast {
-                    assert project.findProperty('notFoundProperty') == null
+                    assert property == null
                 }
             }
         """
@@ -1082,6 +1084,15 @@ task print(type: MyTask) {
                     "Consult the upgrading guide for further information: " +
                     "https://docs.gradle.org/current/userguide/upgrading_version_8.html#deprecated_access_to_conventions"
             )
+        }
+    }
+
+    private void expectTaskProjectDeprecation(int repeated = 1) {
+        repeated.times {
+            executer.expectDocumentedDeprecationWarning("Invocation of Task.project at execution time has been deprecated. "+
+                "This will fail with an error in Gradle 10.0. " +
+                "This API is incompatible with the configuration cache, which will become the only mode supported by Gradle in a future release. " +
+                "Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_7.html#task_project")
         }
     }
 }

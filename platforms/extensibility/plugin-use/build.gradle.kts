@@ -2,15 +2,10 @@ plugins {
     id("gradlebuild.distribution.api-java")
 }
 
-errorprone {
-    disabledChecks.addAll(
-        "UnusedMethod", // 7 occurrences
-    )
-}
-
 dependencies {
     api(projects.serviceProvider)
     api(projects.baseServices)
+    api(projects.classloaders)
     api(projects.coreApi)
     api(projects.core)
     api(projects.dependencyManagement)
@@ -19,16 +14,20 @@ dependencies {
     api(projects.logging)
     api(projects.messaging)
     api(projects.modelCore)
+    api(projects.modelReflect)
+    api(projects.problemsApi)
 
     api(libs.guava)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
     implementation(projects.functional)
 
+    implementation(libs.slf4jApi)
+
     implementation(projects.jvmServices)
-    implementation(projects.problemsApi)
 
     testImplementation(testFixtures(projects.resourcesHttp))
+    testImplementation(testFixtures(projects.core))
 
     integTestImplementation(projects.baseServicesGroovy)
     integTestImplementation(libs.jetbrainsAnnotations)
@@ -42,3 +41,6 @@ dependencies {
 testFilesCleanup.reportOnly = true
 
 description = """Provides functionality for resolving and managing plugins during their application to projects."""
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

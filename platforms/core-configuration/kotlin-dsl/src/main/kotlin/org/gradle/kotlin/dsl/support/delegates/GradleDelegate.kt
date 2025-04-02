@@ -127,34 +127,26 @@ abstract class GradleDelegate : Gradle {
     override fun projectsEvaluated(action: Action<in Gradle>) =
         delegate.projectsEvaluated(action)
 
-    @Deprecated("Deprecated in Java")
+    @Suppress("DEPRECATION")
     override fun buildFinished(closure: Closure<Any>) =
-        @Suppress("DEPRECATION")
         delegate.buildFinished(closure)
 
-    @Deprecated("Deprecated in Java")
+    @Suppress("DEPRECATION")
     override fun buildFinished(action: Action<in BuildResult>) =
-        @Suppress("DEPRECATION")
         delegate.buildFinished(action)
 
-    @Deprecated("Deprecated in Java")
     override fun addBuildListener(buildListener: BuildListener) =
-        @Suppress("DEPRECATION")
         delegate.addBuildListener(buildListener)
 
-    @Deprecated("Deprecated in Java")
     override fun addListener(listener: Any) =
-        @Suppress("DEPRECATION")
         delegate.addListener(listener)
 
-    @Deprecated("Deprecated in Java")
     override fun removeListener(listener: Any) =
-        @Suppress("DEPRECATION")
         delegate.removeListener(listener)
 
-    @Deprecated("Deprecated in Java")
+    @Suppress("DEPRECATION")
+    @Deprecated("Will be removed in Gradle 9. Logging customization through listeners is no longer supported.")
     override fun useLogger(logger: Any) =
-        @Suppress("DEPRECATION")
         delegate.useLogger(logger)
 
     override fun getGradle(): Gradle =

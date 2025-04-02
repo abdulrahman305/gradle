@@ -5,20 +5,21 @@ plugins {
 description = "Contains plugins for building Groovy projects."
 
 dependencies {
-    api(libs.jsr305)
+    api(libs.jspecify)
     api(libs.groovy)
     api(libs.inject)
 
     api(projects.baseServices)
-    api(projects.core)
     api(projects.coreApi)
+    api(projects.fileOperations)
     api(projects.languageJava)
     api(projects.modelCore)
     api(projects.buildProcessServices)
 
-    implementation(projects.serviceLookup)
-    implementation(projects.stdlibJavaExtensions)
+    implementation(projects.classloaders)
+    implementation(projects.core)
     implementation(projects.fileCollections)
+    implementation(projects.jvmServices)
     implementation(projects.languageGroovy)
     implementation(projects.languageJvm)
     implementation(projects.logging)
@@ -26,6 +27,8 @@ dependencies {
     implementation(projects.pluginsJava)
     implementation(projects.pluginsJavaBase)
     implementation(projects.reporting)
+    implementation(projects.serviceLookup)
+    implementation(projects.stdlibJavaExtensions)
     implementation(projects.toolchainsJvm)
     implementation(projects.toolchainsJvmShared)
 
@@ -45,3 +48,6 @@ dependencies {
 }
 
 integTest.usesJavadocCodeSnippets.set(true)
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

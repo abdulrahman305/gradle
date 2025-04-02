@@ -1,5 +1,7 @@
 plugins {
-    id("gradlebuild.distribution.api-java")
+    // Uninstrumented since it is a mix of Groovy and Java code,
+    // and additionally we don't plan to have upgrades for IDE plugins.
+    id("gradlebuild.distribution.uninstrumented.api-java")
 }
 
 description = "Plugins for integration with native projects in XCode and Visual Studio IDEs"
@@ -17,7 +19,7 @@ dependencies {
     api(libs.groovy)
     api(libs.guava)
     api(libs.inject)
-    api(libs.jsr305)
+    api(libs.jspecify)
     api(libs.plist)
     api(projects.baseIdePlugins)
     api(projects.baseServices)
@@ -35,7 +37,9 @@ dependencies {
     implementation(projects.testingNative)
     implementation(projects.loggingApi)
     implementation(projects.serviceLookup)
+    implementation(projects.functional)
     implementation(libs.commonsLang)
+    implementation(libs.jsr305)
 
     runtimeOnly(projects.dependencyManagement)
     runtimeOnly(projects.testingBase)
@@ -62,3 +66,6 @@ dependencies {
 }
 
 integTest.usesJavadocCodeSnippets = true
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

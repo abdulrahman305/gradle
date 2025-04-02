@@ -68,6 +68,7 @@ import org.gradle.internal.snapshot.impl.ClassImplementationSnapshot
 import org.gradle.internal.snapshot.impl.DefaultValueSnapshotter
 import org.gradle.internal.snapshot.impl.ImplementationSnapshot
 import org.gradle.internal.work.AsyncWorkTracker
+import org.gradle.util.TestUtil
 import spock.lang.Specification
 
 import static java.util.Collections.emptyList
@@ -80,6 +81,7 @@ import static org.gradle.internal.work.AsyncWorkTracker.ProjectLockRetention.REL
 import static org.gradle.internal.work.AsyncWorkTracker.ProjectLockRetention.RELEASE_PROJECT_LOCKS
 
 class ExecuteActionsTaskExecuterTest extends Specification {
+    def problems = TestUtil.problemsService()
     def task = Mock(TaskInternal)
     def taskOutputs = Mock(TaskOutputsEnterpriseInternal)
     def action1 = Mock(InputChangesAwareTaskAction) {
@@ -100,7 +102,7 @@ class ExecuteActionsTaskExecuterTest extends Specification {
 
         getOutputFilesProducedByWork() >> ImmutableSortedMap.of()
     }
-    def validationContext = new DefaultWorkValidationContext(WorkValidationContext.TypeOriginInspector.NO_OP)
+    def validationContext = new DefaultWorkValidationContext(WorkValidationContext.TypeOriginInspector.NO_OP, problems)
     def executionContext = Mock(TaskExecutionContext)
     def scriptSource = Mock(ScriptSource)
     def standardOutputCapture = Mock(StandardOutputCapture)
@@ -153,7 +155,8 @@ class ExecuteActionsTaskExecuterTest extends Specification {
         outputSnapshotter,
         overlappingOutputDetector,
         validationWarningReporter,
-        virtualFileSystem
+        virtualFileSystem,
+        problems
     )
 
     def executer = new ExecuteActionsTaskExecuter(

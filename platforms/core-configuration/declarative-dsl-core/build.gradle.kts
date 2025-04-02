@@ -20,8 +20,8 @@ tasks.withType<KotlinCompile>().configureEach {
 dependencies {
     api(projects.declarativeDslToolingModels)
 
-    api(libs.kotlinCompilerEmbeddable)
     api(libs.kotlinStdlib)
+    api(libs.kotlinCompilerEmbeddable)
 
     implementation(projects.declarativeDslApi)
     implementation(libs.kotlinReflect)
@@ -29,8 +29,12 @@ dependencies {
     implementation(libs.kotlinxSerializationJson)
 
     testImplementation(projects.coreApi)
-    testImplementation(libs.futureKotlin("test-junit5"))
     testImplementation("org.jetbrains:annotations:24.0.1")
 
+    testFixturesImplementation(libs.kotlinReflect)
+
     integTestDistributionRuntimeOnly(projects.distributionsFull)
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

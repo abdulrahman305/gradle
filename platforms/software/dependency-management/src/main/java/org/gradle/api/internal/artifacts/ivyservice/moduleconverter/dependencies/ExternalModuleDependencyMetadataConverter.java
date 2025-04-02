@@ -17,19 +17,18 @@ package org.gradle.api.internal.artifacts.ivyservice.moduleconverter.dependencie
 
 import org.gradle.api.artifacts.ExternalModuleDependency;
 import org.gradle.api.artifacts.ModuleDependency;
+import org.gradle.api.artifacts.ModuleIdentifier;
 import org.gradle.api.artifacts.component.ModuleComponentSelector;
 import org.gradle.api.internal.artifacts.DefaultModuleIdentifier;
+import org.gradle.api.internal.artifacts.ImmutableVersionConstraint;
 import org.gradle.api.internal.artifacts.VersionConstraintInternal;
 import org.gradle.internal.component.external.model.DefaultModuleComponentSelector;
-import org.gradle.internal.component.local.model.DslOriginDependencyMetadataWrapper;
-import org.gradle.internal.component.model.ExcludeMetadata;
 import org.gradle.internal.component.model.LocalComponentDependencyMetadata;
 import org.gradle.internal.component.model.LocalOriginDependencyMetadata;
-
-import javax.annotation.Nullable;
-import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 public class ExternalModuleDependencyMetadataConverter extends AbstractDependencyMetadataConverter {
+
     public ExternalModuleDependencyMetadataConverter(ExcludeRuleConverter excludeRuleConverter) {
         super(excludeRuleConverter);
     }
@@ -41,22 +40,35 @@ public class ExternalModuleDependencyMetadataConverter extends AbstractDependenc
         boolean changing = externalModuleDependency.isChanging();
         boolean transitive = externalModuleDependency.isTransitive();
 
-        ModuleComponentSelector selector = DefaultModuleComponentSelector.newSelector(
-            DefaultModuleIdentifier.newId(nullToEmpty(dependency.getGroup()), nullToEmpty(dependency.getName())),
-            ((VersionConstraintInternal) externalModuleDependency.getVersionConstraint()).asImmutable(),
-            dependency.getAttributes(),
-            dependency.getRequestedCapabilities());
+        ModuleIdentifier moduleId = DefaultModuleIdentifier.newId(
+            nullToEmpty(dependency.getGroup()),
+            nullToEmpty(dependency.getName())
+        );
 
-        List<ExcludeMetadata> excludes = convertExcludeRules(dependency.getExcludeRules());
-        LocalComponentDependencyMetadata dependencyMetaData = new LocalComponentDependencyMetadata(
+        ImmutableVersionConstraint version = ((VersionConstraintInternal) externalModuleDependency.getVersionConstraint()).asImmutable();
+
+        ModuleComponentSelector selector = DefaultModuleComponentSelector.newSelector(
+            moduleId,
+            version,
+            dependency.getAttributes(),
+            dependency.getCapabilitySelectors()
+        );
+
+        return new LocalComponentDependencyMetadata(
             selector,
             dependency.getTargetConfiguration(),
             convertArtifacts(dependency.getArtifacts()),
-            excludes, force, changing, transitive, false, dependency.isEndorsingStrictVersions(), dependency.getReason());
-        return new DslOriginDependencyMetadataWrapper(dependencyMetaData, dependency);
+            convertExcludeRules(dependency.getExcludeRules()),
+            force,
+            changing,
+            transitive,
+            false,
+            dependency.isEndorsingStrictVersions(),
+            dependency.getReason()
+        );
     }
 
-    private String nullToEmpty(@Nullable String input) {
+    private static String nullToEmpty(@Nullable String input) {
         return input == null ? "" : input;
     }
 
@@ -64,4 +76,5 @@ public class ExternalModuleDependencyMetadataConverter extends AbstractDependenc
     public boolean canConvert(ModuleDependency dependency) {
         return dependency instanceof ExternalModuleDependency;
     }
+
 }

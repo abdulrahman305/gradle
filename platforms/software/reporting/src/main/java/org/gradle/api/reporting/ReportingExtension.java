@@ -18,15 +18,14 @@ package org.gradle.api.reporting;
 import org.gradle.api.ExtensiblePolymorphicDomainObjectContainer;
 import org.gradle.api.Incubating;
 import org.gradle.api.Project;
-import org.gradle.api.file.Directory;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.internal.file.FileLookup;
 import org.gradle.api.internal.project.ProjectInternal;
+import org.gradle.internal.deprecation.DeprecationLogger;
 import org.gradle.internal.instrumentation.api.annotations.ToBeReplacedByLazyProperty;
 
 import javax.inject.Inject;
 import java.io.File;
-import java.util.concurrent.Callable;
 
 /**
  * A project extension named "reporting" that provides basic reporting settings and utilities.
@@ -34,7 +33,7 @@ import java.util.concurrent.Callable;
  * Example usage:
  * <pre>
  * reporting {
- *     baseDir "$buildDir/our-reports"
+ *     baseDirectory = layout.buildDirectory.dir("our-reports")
  * }
  * </pre>
  * <p>
@@ -49,7 +48,7 @@ public abstract class ReportingExtension {
     public static final String NAME = "reporting";
 
     /**
-     * The default name of the base directory for all reports, relative to {@link org.gradle.api.Project#getBuildDir()} ({@value}).
+     * The default name of the base directory for all reports, relative to {@link org.gradle.api.file.ProjectLayout#getBuildDirectory()} ({@value}).
      */
     public static final String DEFAULT_REPORTS_DIR_NAME = "reports";
 
@@ -71,38 +70,17 @@ public abstract class ReportingExtension {
      * This value can be changed, so any files derived from this should be calculated on demand.
      *
      * @return The base directory for all reports
+     * @deprecated use {@link #getBaseDirectory()} property instead
      */
-    @ToBeReplacedByLazyProperty
+    @Deprecated
     public File getBaseDir() {
+        DeprecationLogger.deprecateMethod(ReportingExtension.class, "getBaseDir()")
+            .replaceWith("getBaseDirectory() property")
+            .willBeRemovedInGradle9()
+            .withUpgradeGuideSection(8, "reporting-base-dir")
+            .nagUser();
+
         return baseDirectory.getAsFile().get();
-    }
-
-    /**
-     * Sets the base directory to use for all reports
-     *
-     * @param baseDir The base directory to use for all reports
-     * @since 4.0
-     */
-    public void setBaseDir(File baseDir) {
-        baseDirectory.set(baseDir);
-    }
-
-    /**
-     * Sets the base directory to use for all reports
-     * <p>
-     * The value will be converted to a {@code File} on demand via {@link Project#file(Object)}.
-     *
-     * @param baseDir The base directory to use for all reports
-     */
-    public void setBaseDir(final Object baseDir) {
-        this.baseDirectory.set(project.provider(new Callable<Directory>() {
-            @Override
-            public Directory call() throws Exception {
-                DirectoryProperty result = project.getObjects().directoryProperty();
-                result.set(project.file(baseDir));
-                return result.get();
-            }
-        }));
     }
 
     /**
@@ -115,15 +93,15 @@ public abstract class ReportingExtension {
     }
 
     /**
-     * Creates a file object for the given path, relative to {@link #getBaseDir()}.
+     * Creates a file object for the given path, relative to {@link #getBaseDirectory()}.
      * <p>
      * The reporting base dir can be changed, so users of this method should use it on demand where appropriate.
      *
      * @param path the relative path
-     * @return a file object at the given path relative to {@link #getBaseDir()}
+     * @return a file object at the given path relative to {@link #getBaseDirectory()}.
      */
     public File file(String path) {  // TODO should this take Object?
-        return this.project.getServices().get(FileLookup.class).getFileResolver(getBaseDir()).resolve(path);
+        return this.project.getServices().get(FileLookup.class).getFileResolver(getBaseDirectory().getAsFile().get()).resolve(path);
     }
 
     @ToBeReplacedByLazyProperty

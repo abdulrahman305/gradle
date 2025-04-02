@@ -24,7 +24,7 @@ import org.gradle.internal.serialize.graph.BeanStateWriter
 import org.gradle.internal.serialize.graph.WriteContext
 import org.gradle.internal.serialize.graph.reportUnsupportedFieldType
 import org.gradle.internal.serialize.graph.withDebugFrame
-import org.gradle.internal.serialize.graph.writeNextProperty
+import org.gradle.internal.serialize.graph.writePropertyValue
 import java.lang.reflect.Field
 
 
@@ -51,7 +51,7 @@ class BeanPropertyWriter(
                 reportUnsupportedFieldType(it, "serialize", fieldName, fieldValue)
             }
             withDebugFrame({ field.debugFrameName() }) {
-                writeNextProperty(fieldName, fieldValue, PropertyKind.Field)
+                writePropertyValue(PropertyKind.Field, fieldName, fieldValue)
             }
         }
     }
@@ -72,10 +72,10 @@ class BeanPropertyWriter(
         }
 
     private
-    fun getConventionValue(bean: Any, field: Field, fieldValue: Any?) =
+    fun getConventionValue(bean: Any, field: Field, fieldValue: Any?): Any? =
         bean.uncheckedCast<IConventionAware>()
             .conventionMapping
-            .getConventionValue<Any?>(fieldValue, field.name, false)
+            .getConventionValue(fieldValue, field.name, false)
 
     private
     fun Field.debugFrameName() =

@@ -17,9 +17,12 @@
 package org.gradle.api.internal.provider;
 
 import org.gradle.api.Action;
+import org.gradle.api.Describable;
 import org.gradle.api.GradleException;
 import org.gradle.api.NonExtensible;
 import org.gradle.api.internal.properties.GradleProperties;
+import org.gradle.api.internal.provider.ValueSupplier.ExecutionTimeValue;
+import org.gradle.api.internal.provider.ValueSupplier.Value;
 import org.gradle.api.internal.tasks.TaskDependencyResolveContext;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.provider.ValueSource;
@@ -27,6 +30,7 @@ import org.gradle.api.provider.ValueSourceParameters;
 import org.gradle.api.provider.ValueSourceSpec;
 import org.gradle.internal.Cast;
 import org.gradle.internal.Describables;
+import org.gradle.internal.DisplayName;
 import org.gradle.internal.Try;
 import org.gradle.internal.event.AnonymousListenerBroadcast;
 import org.gradle.internal.event.ListenerManager;
@@ -41,9 +45,9 @@ import org.gradle.internal.service.ServiceLookup;
 import org.gradle.internal.service.ServiceRegistry;
 import org.gradle.internal.service.ServiceRegistryBuilder;
 import org.gradle.process.ExecOperations;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class DefaultValueSourceProviderFactory implements ValueSourceProviderFactory {
@@ -77,7 +81,7 @@ public class DefaultValueSourceProviderFactory implements ValueSourceProviderFac
         this.execOperations = execOperations;
         // TODO - dedupe logic copied from DefaultBuildServicesRegistry
         this.paramsInstantiator = instantiatorFactory.decorateScheme().withServices(services).instantiator();
-        this.specInstantiator = instantiatorFactory.decorateLenientScheme().withServices(services).instantiator();
+        this.specInstantiator = instantiatorFactory.decorateLenient(services);
     }
 
     @Override
@@ -120,7 +124,7 @@ public class DefaultValueSourceProviderFactory implements ValueSourceProviderFac
     }
 
     @Override
-    @Nonnull
+    @NonNull
     public <T, P extends ValueSourceParameters> Provider<T> instantiateValueSourceProvider(
         Class<? extends ValueSource<T, P>> valueSourceType,
         @Nullable Class<P> parametersType,
@@ -131,7 +135,7 @@ public class DefaultValueSourceProviderFactory implements ValueSourceProviderFac
         );
     }
 
-    @Nonnull
+    @NonNull
     public <T, P extends ValueSourceParameters> ValueSource<T, P> instantiateValueSource(
         Class<? extends ValueSource<T, P>> valueSourceType,
         @Nullable Class<P> parametersType,
@@ -256,7 +260,7 @@ public class DefaultValueSourceProviderFactory implements ValueSourceProviderFac
         @Override
         public ExecutionTimeValue<T> calculateExecutionTimeValue() {
             if (value.hasBeenObtained()) {
-                return ExecutionTimeValue.ofNullable(value.obtain().get());
+                return value.obtain().asExecutionTimeValue();
             } else {
                 return ExecutionTimeValue.changingValue(this);
             }
@@ -264,7 +268,7 @@ public class DefaultValueSourceProviderFactory implements ValueSourceProviderFac
 
         @Override
         protected Value<? extends T> calculateOwnValue(ValueConsumer consumer) {
-            return Value.ofNullable(value.obtain().get());
+            return value.obtain().asNullableValue();
         }
     }
 
@@ -278,7 +282,7 @@ public class DefaultValueSourceProviderFactory implements ValueSourceProviderFac
         @Nullable
         public final P parameters;
 
-        private final CalculatedValue<@org.jetbrains.annotations.Nullable T> value;
+        private final CalculatedValue<@Nullable T> value;
         // A temporary holder for the source used to obtain the value.
         // This is sent to observers alongside the actual value by a single thread.
         // The thread then clears the reference to save memory.
@@ -309,7 +313,7 @@ public class DefaultValueSourceProviderFactory implements ValueSourceProviderFac
             return value.isFinalized();
         }
 
-        public Try<@org.jetbrains.annotations.Nullable T> obtain() {
+        public ObtainedValueHolder<T> obtain() {
             final @Nullable ValueSource<T, P> obtainedFrom;
             try {
                 value.finalizeIfNotAlready();
@@ -318,15 +322,20 @@ public class DefaultValueSourceProviderFactory implements ValueSourceProviderFac
                 // This is mostly a theoretical possibility, but the call above is blocking, so it can be interrupted.
                 obtainedFrom = sourceRef.getAndSet(null);
             }
-            Try<@org.jetbrains.annotations.Nullable T> obtained = value.getValue();
+            Try<@Nullable T> obtained = value.getValue();
             if (obtainedFrom != null) {
                 // We are the first thread to see the obtained value. Let's tell the interested parties about it.
                 valueBroadcaster.getSource().valueObtained(obtainedValue(obtained), obtainedFrom);
+                DisplayName displayName = null;
+                if (obtainedFrom instanceof Describable) {
+                    displayName = Describables.of(((Describable) obtainedFrom).getDisplayName());
+                }
+                return new ObtainedValueHolder<>(obtained, displayName);
             }
-            return obtained;
+            return new ObtainedValueHolder<>(obtained);
         }
 
-        @Nonnull
+        @NonNull
         private ValueSource<T, P> source() {
             return instantiateValueSource(
                 sourceType,
@@ -335,8 +344,8 @@ public class DefaultValueSourceProviderFactory implements ValueSourceProviderFac
             );
         }
 
-        @Nonnull
-        private DefaultObtainedValue<T, P> obtainedValue(Try<@org.jetbrains.annotations.Nullable T> obtained) {
+        @NonNull
+        private DefaultObtainedValue<T, P> obtainedValue(Try<@Nullable T> obtained) {
             return new DefaultObtainedValue<>(
                 obtained,
                 sourceType,
@@ -346,16 +355,39 @@ public class DefaultValueSourceProviderFactory implements ValueSourceProviderFac
         }
     }
 
+    private static class ObtainedValueHolder<T> {
+        private final Try<T> obtained;
+        @Nullable
+        private final DisplayName displayName;
+
+        private ObtainedValueHolder(Try<T> obtained, @Nullable DisplayName displayName) {
+            this.obtained = obtained;
+            this.displayName = displayName;
+        }
+
+        public ObtainedValueHolder(Try<T> obtained) {
+            this(obtained, null);
+        }
+
+        public Value<T> asNullableValue() {
+            return Value.ofNullable(obtained.get()).pushWhenMissing(displayName);
+        }
+
+        public ExecutionTimeValue<T> asExecutionTimeValue() {
+            return ExecutionTimeValue.ofNullable(obtained.get());
+        }
+    }
+
     private static class DefaultObtainedValue<T, P extends ValueSourceParameters> implements ValueListener.ObtainedValue<T, P> {
 
-        private final Try<@org.jetbrains.annotations.Nullable T> value;
+        private final Try<@Nullable T> value;
         private final Class<? extends ValueSource<T, P>> valueSourceType;
         private final Class<P> parametersType;
         @Nullable
         private final P parameters;
 
         public DefaultObtainedValue(
-            Try<@org.jetbrains.annotations.Nullable T> value,
+            Try<@Nullable T> value,
             Class<? extends ValueSource<T, P>> valueSourceType,
             @Nullable Class<P> parametersType,
             @Nullable P parameters
@@ -367,7 +399,7 @@ public class DefaultValueSourceProviderFactory implements ValueSourceProviderFac
         }
 
         @Override
-        public Try<@org.jetbrains.annotations.Nullable T> getValue() {
+        public Try<@Nullable T> getValue() {
             return value;
         }
 

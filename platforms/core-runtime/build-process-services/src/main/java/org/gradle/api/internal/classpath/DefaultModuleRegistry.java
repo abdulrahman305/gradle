@@ -22,8 +22,8 @@ import org.gradle.internal.classpath.ClassPath;
 import org.gradle.internal.classpath.DefaultClassPath;
 import org.gradle.internal.installation.GradleInstallation;
 import org.gradle.util.internal.GUtil;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -269,7 +269,8 @@ public class DefaultModuleRegistry implements ModuleRegistry, GlobalCacheRootsPr
      * <li>In Eclipse, they are in the bin/ folder.</li>
      * <li>In IDEA (native import), they are in the out/production/ folder.</li>
      * </ul>
-     * <li>In both cases we also include the static and generated resources of the project.</li>
+     *
+     * In both cases we also include the static and generated resources of the project.
      */
     private List<String> getClasspathSuffixesForProjectDir(String projectDirName) {
         List<String> suffixes = new ArrayList<>();

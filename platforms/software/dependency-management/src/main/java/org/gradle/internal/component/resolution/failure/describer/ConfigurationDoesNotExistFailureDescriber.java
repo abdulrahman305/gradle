@@ -19,19 +19,16 @@ package org.gradle.internal.component.resolution.failure.describer;
 import com.google.common.collect.ImmutableList;
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
 import org.gradle.api.internal.artifacts.ProjectComponentIdentifierInternal;
-import org.gradle.api.internal.attributes.AttributesSchemaInternal;
 import org.gradle.internal.component.resolution.failure.exception.VariantSelectionByNameException;
 import org.gradle.internal.component.resolution.failure.type.ConfigurationDoesNotExistFailure;
 import org.gradle.util.Path;
-
-import java.util.Optional;
 
 /**
  * A {@link ResolutionFailureDescriber} that describes a {@link ConfigurationDoesNotExistFailure}.
  */
 public abstract class ConfigurationDoesNotExistFailureDescriber extends AbstractResolutionFailureDescriber<ConfigurationDoesNotExistFailure> {
     @Override
-    public VariantSelectionByNameException describeFailure(ConfigurationDoesNotExistFailure failure, Optional<AttributesSchemaInternal> schema) {
+    public VariantSelectionByNameException describeFailure(ConfigurationDoesNotExistFailure failure) {
         String message = buildFailureMsg(failure);
 
         ImmutableList.Builder<String> resolutions = ImmutableList.builder();
@@ -52,10 +49,5 @@ public abstract class ConfigurationDoesNotExistFailureDescriber extends Abstract
             failure.getRequestedConfigurationName(),
             failure.getTargetComponent().getDisplayName()
         );
-    }
-
-    private String quoteNameOnly(String formattedId) {
-        int projectIdIdx = formattedId.indexOf("project ");
-        return projectIdIdx < 0 ? '\'' + formattedId + '\'' : formattedId.substring(0, projectIdIdx + 8) + '\'' + formattedId.substring(projectIdIdx + 8) + '\'';
     }
 }

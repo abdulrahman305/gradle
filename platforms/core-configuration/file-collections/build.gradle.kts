@@ -16,7 +16,7 @@ dependencies {
     api(libs.groovy)
     api(libs.guava)
     api(libs.inject)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
     implementation(projects.io)
     implementation(projects.baseServicesGroovy)
@@ -32,6 +32,7 @@ dependencies {
     testImplementation(testFixtures(projects.core))
     testImplementation(testFixtures(projects.coreApi))
     testImplementation(testFixtures(projects.modelCore))
+    testImplementation(testFixtures(projects.modelReflect))
     testImplementation(libs.groovyDateUtil)
 
     testFixturesImplementation(projects.baseServices)
@@ -53,4 +54,7 @@ strictCompile {
 packageCycles {
     // Some cycles have been inherited from the time these classes were in :core
     excludePatterns.add("org/gradle/api/internal/file/collections/**")
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

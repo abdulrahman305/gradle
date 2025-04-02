@@ -1,5 +1,7 @@
 plugins {
-    id("gradlebuild.distribution.api-java")
+    // Uninstrumented since this very low-level subproject contains API classes,
+    // but instrumentation annotation processor depends on it.
+    id("gradlebuild.distribution.uninstrumented.api-java")
     id("gradlebuild.publish-public-libraries")
 }
 
@@ -11,4 +13,5 @@ dependencies {
     compileOnly(libs.jetbrainsAnnotations)
 
     api(libs.jsr305)
+    api(libs.jspecify)
 }

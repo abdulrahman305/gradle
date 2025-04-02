@@ -21,31 +21,33 @@ import spock.lang.Issue
 class GroovyBasePluginIntegrationTest extends AbstractIntegrationSpec {
     def "defaults Groovy class path to inferred Groovy dependency"() {
         file("build.gradle") << """
-apply plugin: "groovy-base"
+            plugins {
+                id("groovy-base")
+            }
 
-sourceSets {
-    custom
-}
+            sourceSets {
+                custom
+            }
 
-${mavenCentralRepository()}
+            ${mavenCentralRepository()}
 
-dependencies {
-    customImplementation "$dependency"
-}
+            dependencies {
+                customImplementation "$dependency"
+            }
 
-task groovydoc(type: Groovydoc) {
-    classpath = sourceSets.custom.runtimeClasspath
-}
+            task groovydoc(type: Groovydoc) {
+                classpath = sourceSets.custom.runtimeClasspath
+            }
 
-task verify {
-    def compileCustomGroovyClasspath = compileCustomGroovy.groovyClasspath
-    def groovydocGroovyClasspath = groovydoc.groovyClasspath
-    doLast {
-        assert compileCustomGroovyClasspath.files.any { it.name == "$jarFile" }
-        assert groovydocGroovyClasspath.files.any { it.name == "$jarFile" }
-    }
-}
-"""
+            task verify {
+                def compileCustomGroovyClasspath = compileCustomGroovy.groovyClasspath
+                def groovydocGroovyClasspath = groovydoc.groovyClasspath
+                doLast {
+                    assert compileCustomGroovyClasspath.files.any { it.name == "$jarFile" }
+                    assert groovydocGroovyClasspath.files.any { it.name == "$jarFile" }
+                }
+            }
+        """
 
         expect:
         succeeds("verify")
@@ -59,34 +61,36 @@ task verify {
 
     def "only resolves source class path feeding into inferred Groovy class path if/when the latter is actually used (but not during autowiring)"() {
         file("build.gradle") << """
-apply plugin: "groovy-base"
+            plugins {
+                id("groovy-base")
+            }
 
-sourceSets {
-    custom
-}
+            sourceSets {
+                custom
+            }
 
-${mavenCentralRepository()}
+            ${mavenCentralRepository()}
 
-dependencies {
-    customImplementation "org.codehaus.groovy:groovy-all:2.4.10"
-}
+            dependencies {
+                customImplementation "org.codehaus.groovy:groovy-all:2.4.10"
+            }
 
-task groovydoc(type: Groovydoc) {
-    classpath = sourceSets.custom.runtimeClasspath
-}
+            task groovydoc(type: Groovydoc) {
+                classpath = sourceSets.custom.runtimeClasspath
+            }
 
-task verify {
-    def customCompileClasspathState = provider {
-        configurations.customCompileClasspath.state.toString()
-    }
-    def customRuntimeClasspathState = provider {
-        configurations.customRuntimeClasspath.state.toString()
-    }
-    doLast {
-        assert customCompileClasspathState.get() == "UNRESOLVED"
-        assert customRuntimeClasspathState.get() == "UNRESOLVED"
-    }
-}
+            task verify {
+                def customCompileClasspathState = provider {
+                    configurations.customCompileClasspath.state.toString()
+                }
+                def customRuntimeClasspathState = provider {
+                    configurations.customRuntimeClasspath.state.toString()
+                }
+                doLast {
+                    assert customCompileClasspathState.get() == "UNRESOLVED"
+                    assert customRuntimeClasspathState.get() == "UNRESOLVED"
+                }
+            }
         """
 
         expect:
@@ -96,7 +100,9 @@ task verify {
     def "not specifying a groovy runtime produces decent error message"() {
         given:
         buildFile << """
-            apply plugin: "groovy-base"
+            plugins {
+                id("groovy-base")
+            }
 
             sourceSets {
                 main {}
@@ -125,7 +131,9 @@ task verify {
     def "can override sourceSet language destinationDirectory to override compile task destinationDirectory"() {
         given:
         buildFile << '''
-            apply plugin: 'groovy-base'
+            plugins {
+                id("groovy-base")
+            }
 
             sourceSets {
                 main {
@@ -148,4 +156,5 @@ task verify {
         expect:
         succeeds 'assertDirectoriesAreEquals'
     }
+
 }

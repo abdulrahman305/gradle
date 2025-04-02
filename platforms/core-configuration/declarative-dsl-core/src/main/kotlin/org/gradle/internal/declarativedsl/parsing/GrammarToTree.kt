@@ -2,6 +2,8 @@ package org.gradle.internal.declarativedsl.parsing
 
 import org.gradle.internal.declarativedsl.language.AccessChain
 import org.gradle.internal.declarativedsl.language.Assignment
+import org.gradle.internal.declarativedsl.language.AugmentationOperatorKind
+import org.gradle.internal.declarativedsl.language.AugmentingAssignment
 import org.gradle.internal.declarativedsl.language.Block
 import org.gradle.internal.declarativedsl.language.DataStatement
 import org.gradle.internal.declarativedsl.language.Element
@@ -14,9 +16,9 @@ import org.gradle.internal.declarativedsl.language.Import
 import org.gradle.internal.declarativedsl.language.LanguageTreeResult
 import org.gradle.internal.declarativedsl.language.Literal
 import org.gradle.internal.declarativedsl.language.LocalValue
+import org.gradle.internal.declarativedsl.language.NamedReference
 import org.gradle.internal.declarativedsl.language.Null
 import org.gradle.internal.declarativedsl.language.ParsingError
-import org.gradle.internal.declarativedsl.language.PropertyAccess
 import org.gradle.internal.declarativedsl.language.SourceData
 import org.gradle.internal.declarativedsl.language.SourceIdentifier
 import org.gradle.internal.declarativedsl.language.Syntactic
@@ -26,9 +28,11 @@ import org.gradle.internal.declarativedsl.language.UnsupportedConstruct
 import org.gradle.internal.declarativedsl.language.UnsupportedLanguageFeature
 import org.gradle.internal.declarativedsl.language.UnsupportedLanguageFeature.AnnotationUsage
 import org.gradle.internal.declarativedsl.language.UnsupportedLanguageFeature.Indexing
+import org.gradle.internal.declarativedsl.language.UnsupportedLanguageFeature.UnsupportedAssignmentLeftHandSide
 import org.gradle.internal.declarativedsl.language.UnsupportedLanguageFeature.LocalVarNotSupported
 import org.gradle.internal.declarativedsl.language.UnsupportedLanguageFeature.ThisWithLabelQualifier
 import org.gradle.internal.declarativedsl.language.UnsupportedLanguageFeature.UnsignedType
+import org.gradle.internal.declarativedsl.language.UnsupportedLanguageFeature.InvalidImportValue
 import org.gradle.internal.declarativedsl.parsing.FailureCollectorContext.CheckedResult
 import org.jetbrains.kotlin.ElementTypeUtils.getOperationSymbol
 import org.jetbrains.kotlin.ElementTypeUtils.isExpression
@@ -77,6 +81,7 @@ import org.jetbrains.kotlin.com.intellij.lang.impl.PsiBuilderImpl
 import org.jetbrains.kotlin.com.intellij.psi.TokenType.ERROR_ELEMENT
 import org.jetbrains.kotlin.com.intellij.psi.tree.IElementType
 import org.jetbrains.kotlin.lexer.KtSingleValueToken
+import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.lexer.KtTokens.ARROW
 import org.jetbrains.kotlin.lexer.KtTokens.CLOSING_QUOTE
 import org.jetbrains.kotlin.lexer.KtTokens.COLON
@@ -194,10 +199,13 @@ class GrammarToTree(
         elementOrFailure {
             val children = childrenWithParsingErrorCollection(tree, node)
             elementIfNoFailures {
-                var content: CheckedResult<ElementResult<PropertyAccess>>? = null
+                var content: CheckedResult<ElementResult<NamedReference>>? = null
                 children.forEach {
                     when (it.tokenType) {
-                        DOT_QUALIFIED_EXPRESSION, REFERENCE_EXPRESSION -> content = checkForFailure(propertyAccessStatement(tree, it))
+                        DOT_QUALIFIED_EXPRESSION, REFERENCE_EXPRESSION -> content = checkForFailure(
+                            propertyAccessStatement(tree, it)
+                                .flatMap { e -> if (e is NamedReference) Element(e) else tree.unsupported(node, InvalidImportValue) }
+                        )
                         MUL -> collectingFailure(tree.unsupportedNoOffset(node, it, UnsupportedLanguageFeature.StarImport))
                         IMPORT_ALIAS -> collectingFailure(tree.unsupportedNoOffset(node, it, UnsupportedLanguageFeature.RenamingImport))
                     }
@@ -206,9 +214,9 @@ class GrammarToTree(
                 collectingFailure(content ?: tree.parsingError(node, "Qualified expression without selector"))
 
                 elementIfNoFailures {
-                    fun PropertyAccess.flatten(): List<String> =
+                    fun NamedReference.flatten(): List<String> =
                         buildList {
-                            if (receiver is PropertyAccess) {
+                            if (receiver is NamedReference) {
                                 addAll(receiver.flatten())
                             }
                             add(name)
@@ -267,12 +275,12 @@ class GrammarToTree(
 
     @Suppress("UNCHECKED_CAST")
     private
-    fun propertyAccessStatement(tree: CachingLightTree, node: LighterASTNode): ElementResult<PropertyAccess> =
+    fun propertyAccessStatement(tree: CachingLightTree, node: LighterASTNode): ElementResult<Expr> =
         when (val tokenType = node.tokenType) {
             ANNOTATED_EXPRESSION -> tree.unsupported(node, AnnotationUsage)
-            BINARY_EXPRESSION -> binaryStatement(tree, node) as ElementResult<PropertyAccess>
-            REFERENCE_EXPRESSION -> Element(PropertyAccess(null, referenceExpression(node).value, tree.sourceData(node)))
-            in QUALIFIED_ACCESS -> qualifiedExpression(tree, node) as ElementResult<PropertyAccess>
+            BINARY_EXPRESSION -> binaryStatement(tree, node).flatMap { if (it is Expr) Element(it) else tree.parsingError(node, "Unexpected assignment target") }
+            REFERENCE_EXPRESSION -> propertyAccess(tree, node, null, referenceExpression(node).value, tree.sourceData(node))
+            in QUALIFIED_ACCESS -> qualifiedExpression(tree, node)
             ARRAY_ACCESS_EXPRESSION -> tree.unsupported(node, Indexing)
             else -> tree.parsingError(node, "Parsing failure, unexpected tokenType in property access statement: $tokenType")
         }
@@ -291,7 +299,7 @@ class GrammarToTree(
                             val modifiers = tree.children(it)
                             modifiers.forEach { modifier ->
                                 when (modifier.tokenType) {
-                                    ANNOTATION_ENTRY -> collectingFailure(tree.unsupported(node, modifier, UnsupportedLanguageFeature.AnnotationUsage))
+                                    ANNOTATION_ENTRY -> collectingFailure(tree.unsupported(node, modifier, AnnotationUsage))
                                     else -> collectingFailure(tree.unsupported(node, modifier, UnsupportedLanguageFeature.ValModifierNotSupported))
                                 }
                             }
@@ -357,7 +365,7 @@ class GrammarToTree(
 
                 elementIfNoFailures {
                     if (referenceSelector != null) {
-                        Element(PropertyAccess(checked(receiver!!), checked(referenceSelector!!), referenceSourceData!!))
+                        propertyAccess(tree, node, checked(receiver!!), checked(referenceSelector!!), referenceSourceData!!)
                     } else {
                         val functionCall = checked(functionCallSelector!!)
                         Element(FunctionCall(checked(receiver!!), functionCall.name, functionCall.args, functionCall.sourceData))
@@ -365,6 +373,18 @@ class GrammarToTree(
                 }
             }
         }
+
+    private
+    fun propertyAccess(
+        tree: CachingLightTree,
+        node: LighterASTNode,
+        receiver: Expr?,
+        name: String,
+        sourceData: SourceData
+    ): ElementResult<NamedReference> = when(name) {
+        "_" -> tree.unsupported(node, UnsupportedLanguageFeature.UnsupportedSimpleIdentifier)
+        else -> Element(NamedReference(receiver, name, sourceData))
+    }
 
     private
     fun stringTemplate(tree: CachingLightTree, node: LighterASTNode): ElementResult<Expr> =
@@ -446,14 +466,14 @@ class GrammarToTree(
                             VALUE_ARGUMENT_LIST, LAMBDA_ARGUMENT -> {
                                 valueArguments += node
                             }
-                            else -> tree.parsingError(node, "Parsing failure, unexpected token type in call expression: $tokenType")
+                            else -> collectingFailure(tree.parsingError(node, "Parsing failure, unexpected token type in call expression: $tokenType"))
                         }
                     }
 
                     process(child)
                 }
 
-                if (name == null) tree.parsingError(node, "Name missing from function call!")
+                if (name == null) collectingFailure(tree.parsingError(node, "Name missing from function call!"))
 
                 val arguments = valueArguments.flatMap { valueArguments(tree, it) }.map { checkForFailure(it) }
                 elementIfNoFailures {
@@ -523,7 +543,7 @@ class GrammarToTree(
 
 
     private
-    fun valueArgument(tree: CachingLightTree, node: LighterASTNode): SyntacticResult<FunctionArgument.ValueArgument> =
+    fun valueArgument(tree: CachingLightTree, node: LighterASTNode): SyntacticResult<FunctionArgument.SingleValueArgument> =
         syntacticOrFailure {
             if (node.tokenType == PARENTHESIZED) return@syntacticOrFailure valueArgument(tree, tree.getFirstChildExpressionUnwrapped(node)!!)
 
@@ -552,7 +572,7 @@ class GrammarToTree(
                         CALL_EXPRESSION -> expression = checkForFailure(callExpression(tree, it))
                         else ->
                             if (it.isExpression()) expression = checkForFailure(expression(tree, it))
-                            else tree.parsingError(it, "Parsing failure, unexpected token type in value argument: $tokenType")
+                            else collectingFailure(tree.parsingError(it, "Parsing failure, unexpected token type in value argument: $tokenType"))
                     }
                 }
 
@@ -629,7 +649,7 @@ class GrammarToTree(
 
             elementIfNoFailures {
                 var isLeftArgument = true
-                var operationTokenName: String? = null
+                var operation: LighterASTNode? = null
                 var leftArg: LighterASTNode? = null
                 var rightArg: LighterASTNode? = null
 
@@ -637,7 +657,7 @@ class GrammarToTree(
                     when (it.tokenType) {
                         OPERATION_REFERENCE -> {
                             isLeftArgument = false
-                            operationTokenName = it.asText
+                            operation = it
                         }
                         else -> if (it.isExpression()) {
                             if (isLeftArgument) {
@@ -650,30 +670,35 @@ class GrammarToTree(
                 }
 
                 elementIfNoFailures {
-                    if (operationTokenName == null) collectingFailure(tree.parsingError(node, "Missing operation token in binary expression"))
+                    if (operation == null) collectingFailure(tree.parsingError(node, "Missing operation token in binary expression"))
                     if (leftArg == null) collectingFailure(tree.parsingError(node, "Missing left hand side in binary expression"))
                     if (rightArg == null) collectingFailure(tree.parsingError(node, "Missing right hand side in binary expression"))
 
                     elementIfNoFailures {
-                        val operationToken = operationTokenName!!.getOperationSymbol()
+                        val operationToken = operation!!.asText.getOperationSymbol()
                         when (operationToken) {
-                            EQ -> {
-                                val lhs = checkForFailure(propertyAccessStatement(tree, leftArg!!))
+                            EQ, KtTokens.PLUSEQ -> {
+                                val lhs = checkForFailure(
+                                    propertyAccessStatement(tree, leftArg!!)
+                                        .flatMap { if (it is NamedReference) Element(it) else tree.unsupported(node, UnsupportedAssignmentLeftHandSide) }
+                                )
                                 val expr = checkForFailure(expression(tree, rightArg!!))
                                 elementIfNoFailures {
-                                    Element(Assignment(checked(lhs), checked(expr), tree.sourceData(node)))
+                                    if (operationToken == EQ) {
+                                        Element(Assignment(checked(lhs), checked(expr), tree.sourceData(node)))
+                                    } else {
+                                        val assignmentAugmentationKind = when (operationToken) {
+                                            KtTokens.PLUSEQ -> AugmentationOperatorKind.PlusAssign
+                                            else -> error("unexpected operation token $operationToken")
+                                        }
+                                        Element(AugmentingAssignment(checked(lhs), checked(expr), assignmentAugmentationKind, tree.sourceData(node)))
+                                    }
                                 }
                             }
 
-                            IDENTIFIER -> {
-                                val receiver = checkForFailure(expression(tree, leftArg!!))
-                                val argument = checkForFailure(valueArgument(tree, rightArg!!))
-                                elementIfNoFailures {
-                                    Element(FunctionCall(checked(receiver), operationTokenName!!, listOf(checked(argument)), tree.sourceData(node)))
-                                }
-                            }
+                            IDENTIFIER -> tree.unsupported(node, operation!!, UnsupportedLanguageFeature.InfixFunctionCall)
 
-                            else -> tree.unsupported(node, UnsupportedLanguageFeature.UnsupportedOperationInBinaryExpression)
+                            else -> tree.unsupported(node, operation!!, UnsupportedLanguageFeature.UnsupportedOperationInBinaryExpression)
                         }
                     }
                 }
@@ -681,7 +706,10 @@ class GrammarToTree(
         }
 
     private
-    fun referenceExpression(node: LighterASTNode): Syntactic<String> = Syntactic(node.asText)
+    fun referenceExpression(node: LighterASTNode): Syntactic<String> {
+        val value = node.asText
+        return Syntactic(value)
+    }
 
     private
     fun packageNode(tree: LightTree): LighterASTNode =

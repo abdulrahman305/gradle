@@ -19,7 +19,6 @@ package org.gradle.plugins.ide.eclipse.model.internal;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -116,8 +115,7 @@ public class EclipseDependenciesCreator {
             if (componentIdentifier.equals(currentProjectId)) {
                 return;
             }
-            LibraryElements libraryElements = artifact.getVariant().getAttributes().getAttribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE);
-            if (libraryElements == null || !libraryElements.getName().equals(LibraryElements.JAR)) {
+            if (isNotJar(artifact)) {
                 return;
             }
             ComponentArtifactIdentifier artifactId = artifact.getId();
@@ -169,7 +167,7 @@ public class EclipseDependenciesCreator {
          * that, so defer that until later.
          */
         public List<AbstractClasspathEntry> getDependencies() {
-            List<AbstractClasspathEntry> dependencies = Lists.newArrayListWithCapacity(projects.size() + modules.size() + files.size());
+            List<AbstractClasspathEntry> dependencies = new ArrayList<>(projects.size() + modules.size() + files.size());
             dependencies.addAll(projects);
             dependencies.addAll(modules);
             dependencies.addAll(files);
@@ -256,5 +254,11 @@ public class EclipseDependenciesCreator {
 
             return out;
         }
+    }
+
+    private static boolean isNotJar(ResolvedArtifactResult artifact) {
+        LibraryElements libraryElements = artifact.getVariant().getAttributes().getAttribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE);
+        return libraryElements == null
+            || !libraryElements.getName().equals(LibraryElements.JAR);
     }
 }

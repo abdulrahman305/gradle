@@ -48,8 +48,10 @@ class RealLifeAndroidStudioPerformanceTest extends AbstractCrossVersionPerforman
         runner.args = [AndroidGradlePluginVersions.OVERRIDE_VERSION_CHECK]
         def testProject = AndroidTestProject.projectFor(runner.testProject)
         testProject.configure(runner)
-        AndroidTestProject.useAgpLatestStableOrRcVersion(runner)
+        def agpVersion = AndroidTestProject.useAgpLatestStableOrRcVersion(runner)
         AndroidTestProject.useKotlinLatestStableOrRcVersion(runner)
+        AndroidTestProject.configureBuildToolsForAgpVersion(runner, agpVersion)
+
         runner.warmUpRuns = 20
         runner.runs = 20
         runner.setupAndroidStudioSync()

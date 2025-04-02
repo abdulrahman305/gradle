@@ -182,7 +182,7 @@ class ObjectExtensionInstantiationIntegrationTest extends AbstractIntegrationSpe
             }
 
             extensions.create("thing", Thing)
-            assert thing.value.toString() == "file collection"
+            assert thing.value.toString() == "extension 'thing' property 'value'"
             assert thing.value.files.empty
             thing.value.from("a.txt")
             assert thing.value.files as List == [file("a.txt")]
@@ -364,7 +364,7 @@ class ObjectExtensionInstantiationIntegrationTest extends AbstractIntegrationSpe
             }
 
             extensions.create("thing", Thing)
-            assert thing.value.toString() == "[]"
+            assert thing.value.toString() == "Bean collection"
             assert thing.value.empty
             thing.value.add(new Bean(name: "a"))
             thing.value.add(new Bean(name: "b"))

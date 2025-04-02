@@ -165,10 +165,6 @@ class AndroidGradlePluginVersions {
         JavaVersion current = JavaVersion.current()
         JavaVersion mini = getMinimumJavaVersionFor(agpVersionNumber)
         assumeTrue("AGP $agpVersion minimum supported Java version is $mini, current is $current", current >= mini)
-        JavaVersion maxi = getMaximumJavaVersionFor(agpVersionNumber)
-        if (maxi != null) {
-            assumeTrue("AGP $agpVersion maximum supported Java version is $maxi, current is $current", current <= maxi)
-        }
     }
 
     static JavaVersion getMinimumJavaVersionFor(String agpVersion) {
@@ -182,27 +178,15 @@ class AndroidGradlePluginVersions {
             return "30.0.3"
         } else if (version < VersionNumber.parse("8.2")) {
             return "33.0.1"
+        } else if (version < VersionNumber.parse("8.8")) {
+            return "34.0.0"
         }
 
-        return "34.0.0"
+        return "35.0.0"
     }
 
     static JavaVersion getMinimumJavaVersionFor(VersionNumber agpVersion) {
-        if (agpVersion.baseVersion < AGP_7_0) {
-            return JavaVersion.VERSION_1_8
-        }
-        if (agpVersion.baseVersion < AGP_8_0) {
-            return JavaVersion.VERSION_11
-        }
         return JavaVersion.VERSION_17
-    }
-
-    private static JavaVersion getMaximumJavaVersionFor(VersionNumber agpVersion) {
-        // This is mainly to prevent running all AGP tests on too many java versions and reduce CI time
-        if (agpVersion.baseVersion < AGP_7_0) {
-            return JavaVersion.VERSION_11
-        }
-        return null
     }
 
     static void assumeAgpSupportsCurrentJavaVersionAndKotlinVersion(String agpVersion, String kotlinVersion) {

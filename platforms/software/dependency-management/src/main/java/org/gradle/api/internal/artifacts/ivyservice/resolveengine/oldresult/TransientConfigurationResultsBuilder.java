@@ -17,12 +17,13 @@
 
 package org.gradle.api.internal.artifacts.ivyservice.resolveengine.oldresult;
 
-import org.gradle.api.artifacts.Dependency;
+import com.google.common.collect.ImmutableSet;
 import org.gradle.api.artifacts.ModuleVersionIdentifier;
+import org.gradle.api.artifacts.ResolvedDependency;
 import org.gradle.api.internal.artifacts.DefaultResolvedDependency;
-import org.gradle.api.internal.artifacts.DependencyGraphNodeResult;
 import org.gradle.api.internal.artifacts.ImmutableModuleIdentifierFactory;
 import org.gradle.api.internal.artifacts.ModuleVersionIdentifierSerializer;
+import org.gradle.api.internal.artifacts.configurations.ResolutionHost;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.ResolvedArtifactSet;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.SelectedArtifactResults;
 import org.gradle.api.logging.Logger;
@@ -36,7 +37,6 @@ import org.gradle.internal.time.Timer;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.gradle.internal.UncheckedException.throwAsUncheckedException;
@@ -58,15 +58,23 @@ public class TransientConfigurationResultsBuilder {
 
     private final BinaryStore binaryStore;
     private final Store<TransientConfigurationResults> cache;
-    private final BuildOperationExecutor buildOperationProcessor;
+    private final BuildOperationExecutor buildOperationExecutor;
+    private final ResolutionHost resolutionHost;
     private final ModuleVersionIdentifierSerializer moduleVersionIdSerializer;
     private BinaryStore.BinaryData binaryData;
 
-    public TransientConfigurationResultsBuilder(BinaryStore binaryStore, Store<TransientConfigurationResults> cache, ImmutableModuleIdentifierFactory moduleIdentifierFactory, BuildOperationExecutor buildOperationProcessor) {
+    public TransientConfigurationResultsBuilder(
+        BinaryStore binaryStore,
+        Store<TransientConfigurationResults> cache,
+        ImmutableModuleIdentifierFactory moduleIdentifierFactory,
+        BuildOperationExecutor buildOperationExecutor,
+        ResolutionHost resolutionHost
+    ) {
         this.moduleVersionIdSerializer = new ModuleVersionIdentifierSerializer(moduleIdentifierFactory);
         this.binaryStore = binaryStore;
         this.cache = cache;
-        this.buildOperationProcessor = buildOperationProcessor;
+        this.buildOperationExecutor = buildOperationExecutor;
+        this.resolutionHost = resolutionHost;
     }
 
     public void resolvedDependency(final Long id, ModuleVersionIdentifier moduleVersionId, String variantName) {
@@ -111,11 +119,11 @@ public class TransientConfigurationResultsBuilder {
         });
     }
 
-    public TransientConfigurationResults load(final ResolvedGraphResults graphResults, final SelectedArtifactResults artifactResults) {
+    public TransientConfigurationResults load(final SelectedArtifactResults artifactResults) {
         synchronized (lock) {
             return cache.load(() -> {
                 try {
-                    return binaryData.read(decoder -> deserialize(decoder, graphResults, artifactResults, buildOperationProcessor));
+                    return binaryData.read(decoder -> deserialize(decoder, artifactResults, buildOperationExecutor, resolutionHost));
                 } finally {
                     try {
                         binaryData.close();
@@ -127,11 +135,15 @@ public class TransientConfigurationResultsBuilder {
         }
     }
 
-    private TransientConfigurationResults deserialize(Decoder decoder, ResolvedGraphResults graphResults, SelectedArtifactResults artifactResults, BuildOperationExecutor buildOperationProcessor) {
+    private TransientConfigurationResults deserialize(
+        Decoder decoder,
+        SelectedArtifactResults artifactResults,
+        BuildOperationExecutor buildOperationProcessor,
+        ResolutionHost resolutionHost
+    ) {
         Timer clock = Time.startTimer();
         Map<Long, DefaultResolvedDependency> allDependencies = new HashMap<>();
-        Map<Dependency, DependencyGraphNodeResult> firstLevelDependencies = new LinkedHashMap<>();
-        DependencyGraphNodeResult root;
+        ImmutableSet.Builder<ResolvedDependency> firstLevelDependencies = ImmutableSet.builder();
         int valuesRead = 0;
         byte type = -1;
         long id;
@@ -145,24 +157,24 @@ public class TransientConfigurationResultsBuilder {
                         id = decoder.readSmallLong();
                         ModuleVersionIdentifier moduleVersionId = moduleVersionIdSerializer.read(decoder);
                         String variantName = decoder.readString();
-                        allDependencies.put(id, new DefaultResolvedDependency(variantName, moduleVersionId, buildOperationProcessor));
+                        allDependencies.put(id, new DefaultResolvedDependency(variantName, moduleVersionId, buildOperationProcessor, resolutionHost));
                         break;
                     case ROOT:
                         id = decoder.readSmallLong();
-                        root = allDependencies.get(id);
+                        ResolvedDependency root = allDependencies.get(id);
                         if (root == null) {
                             throw new IllegalStateException(String.format("Unexpected root id %s. Seen ids: %s", id, allDependencies.keySet()));
                         }
                         //root should be the last entry
                         LOG.debug("Loaded resolved configuration results ({}) from {}", clock.getElapsed(), binaryStore);
-                        return new DefaultTransientConfigurationResults(root, firstLevelDependencies);
+                        return new DefaultTransientConfigurationResults(root, firstLevelDependencies.build());
                     case FIRST_LEVEL:
                         id = decoder.readSmallLong();
                         DefaultResolvedDependency dependency = allDependencies.get(id);
                         if (dependency == null) {
                             throw new IllegalStateException(String.format("Unexpected first level id %s. Seen ids: %s", id, allDependencies.keySet()));
                         }
-                        firstLevelDependencies.put(graphResults.getModuleDependency(id), dependency);
+                        firstLevelDependencies.add(dependency);
                         break;
                     case EDGE:
                         long parentId = decoder.readSmallLong();

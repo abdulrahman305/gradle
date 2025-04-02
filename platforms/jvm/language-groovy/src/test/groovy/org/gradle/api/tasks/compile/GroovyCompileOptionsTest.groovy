@@ -24,6 +24,8 @@ import org.gradle.util.TestUtil
 import org.junit.Before
 import org.junit.Test
 
+import java.util.concurrent.atomic.AtomicReference
+
 import static org.junit.Assert.assertEquals
 import static org.junit.Assert.assertFalse
 import static org.junit.Assert.assertNotNull
@@ -31,6 +33,7 @@ import static org.junit.Assert.assertNull
 import static org.junit.Assert.assertTrue
 
 class GroovyCompileOptionsTest {
+
     GroovyCompileOptions compileOptions
 
     @Before
@@ -54,25 +57,10 @@ class GroovyCompileOptionsTest {
     }
 
     @Test
-    void testFork() {
-        compileOptions.fork = false
-        assertNull(compileOptions.forkOptions.memoryMaximumSize)
-
-        compileOptions.fork([memoryMaximumSize: '1g'])
-        assertTrue(compileOptions.fork)
-        assertEquals(compileOptions.forkOptions.memoryMaximumSize, '1g')
+    void "forkOptions closure"() {
+        AtomicReference<ForkOptions> forkOptions = new AtomicReference<ForkOptions>()
+        compileOptions.forkOptions(forkOptions::set)
+        assertEquals(compileOptions.forkOptions, forkOptions.get())
     }
 
-    @Test
-    void testDefine() {
-        compileOptions.verbose = false
-        compileOptions.encoding = 'xxxx'
-        compileOptions.fork = false
-        compileOptions.parameters = true
-        compileOptions.define( encoding: 'encoding')
-        assertEquals('encoding', compileOptions.encoding)
-        assertFalse(compileOptions.verbose)
-        assertFalse(compileOptions.fork)
-        assertTrue(compileOptions.parameters)
-    }
 }

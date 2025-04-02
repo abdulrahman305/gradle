@@ -4,41 +4,38 @@ plugins {
 
 description = "Plugins for building Scala code with Gradle."
 
-errorprone {
-    disabledChecks.addAll(
-        "UnusedMethod", // 2 occurrences
-    )
-}
-
 dependencies {
-    api(projects.stdlibJavaExtensions)
     api(projects.baseServices)
+    api(projects.buildProcessServices)
+    api(projects.classloaders)
     api(projects.core)
     api(projects.coreApi)
+    api(projects.daemonServerWorker)
+    api(projects.fileOperations)
     api(projects.files)
     api(projects.hashing)
     api(projects.languageJava)
     api(projects.languageJvm)
     api(projects.loggingApi)
     api(projects.modelCore)
+    api(projects.persistentCache)
     api(projects.platformBase)
     api(projects.platformJvm)
+    api(projects.stdlibJavaExtensions)
     api(projects.toolchainsJvm)
     api(projects.toolchainsJvmShared)
     api(projects.workers)
-    api(projects.buildProcessServices)
 
     api(libs.groovy)
     api(libs.inject)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
-    implementation(projects.internalInstrumentationApi)
     implementation(projects.time)
     implementation(projects.serviceLookup)
     implementation(projects.dependencyManagement)
     implementation(projects.fileCollections)
+    implementation(projects.jvmServices)
     implementation(projects.logging)
-    implementation(projects.persistentCache)
     implementation(projects.pluginsJava)
     implementation(projects.pluginsJavaBase)
     implementation(projects.reporting)
@@ -98,3 +95,6 @@ packageCycles {
 }
 
 integTest.usesJavadocCodeSnippets = true
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

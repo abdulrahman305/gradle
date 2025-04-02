@@ -15,7 +15,7 @@
  */
 
 plugins {
-    id("gradlebuild.distribution.api-java")
+    id("gradlebuild.distribution.implementation-java")
 }
 
 dependencies {
@@ -23,14 +23,14 @@ dependencies {
 
     api(libs.asm)
     api(libs.javaPoet)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
     implementation(libs.asmTree)
     implementation(libs.jacksonAnnotations)
     implementation(libs.jacksonDatabind)
+    implementation(libs.guava)
 
     implementation(projects.stdlibJavaExtensions)
-    implementation(projects.baseServices)
     implementation(projects.baseAsm)
 
     testCompileOnly(libs.jetbrainsAnnotations)

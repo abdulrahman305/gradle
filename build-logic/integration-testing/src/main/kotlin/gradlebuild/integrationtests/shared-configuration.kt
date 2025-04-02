@@ -21,6 +21,8 @@ import gradlebuild.basics.repoRoot
 import gradlebuild.basics.testSplitExcludeTestClasses
 import gradlebuild.basics.testSplitIncludeTestClasses
 import gradlebuild.basics.testSplitOnlyTestGradleVersion
+import gradlebuild.basics.daemonDebuggingIsEnabled
+import gradlebuild.basics.launcherDebuggingIsEnabled
 import gradlebuild.basics.testing.TestType
 import gradlebuild.integrationtests.extension.IntegrationTestExtension
 import gradlebuild.integrationtests.tasks.DistributionTest
@@ -173,16 +175,7 @@ fun Project.createTestTask(name: String, executer: String, sourceSet: SourceSet,
             jvmArgumentProviders.add(SamplesBaseDirPropertyProvider(samplesDir))
         }
         setUpAgentIfNeeded(testType, executer)
-        disableIfNeeded(testType, executer)
     }
-
-
-internal
-fun IntegrationTest.disableIfNeeded(testType: TestType, executer: String) {
-    if (testType == TestType.INTEGRATION && executer == "isolatedProjects") {
-        isEnabled = false
-    }
-}
 
 
 private
@@ -205,21 +198,13 @@ fun IntegrationTest.setUpAgentIfNeeded(testType: TestType, executer: String) {
 
 private
 fun IntegrationTest.addDebugProperties() {
-    // TODO Move magic property out
-    val integtestDebug = project.providers.gradleProperty("org.gradle.integtest.debug")
-    if (integtestDebug.isPresent) {
+    if (project.daemonDebuggingIsEnabled) {
         systemProperties["org.gradle.integtest.debug"] = "true"
         testLogging.showStandardStreams = true
     }
-    // TODO Move magic property out
-    val integtestVerbose = project.providers.gradleProperty("org.gradle.integtest.verbose")
-    if (integtestVerbose.isPresent) {
-        testLogging.showStandardStreams = true
-    }
-    // TODO Move magic property out
-    val integtestLauncherDebug = project.providers.gradleProperty("org.gradle.integtest.launcher.debug")
-    if (integtestLauncherDebug.isPresent) {
+    if (project.launcherDebuggingIsEnabled) {
         systemProperties["org.gradle.integtest.launcher.debug"] = "true"
+        testLogging.showStandardStreams = true
     }
 }
 

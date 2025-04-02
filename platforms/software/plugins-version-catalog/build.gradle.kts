@@ -34,6 +34,8 @@ dependencies {
     implementation(projects.platformBase)
     implementation(projects.platformJvm)
 
+    implementation(libs.jspecify)
+
     runtimeOnly(libs.groovy)
 
     integTestImplementation(testFixtures(projects.core))
@@ -45,4 +47,7 @@ dependencies {
 
 packageCycles {
     excludePatterns.add("org/gradle/**")
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

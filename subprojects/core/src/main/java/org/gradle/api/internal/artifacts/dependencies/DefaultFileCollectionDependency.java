@@ -22,8 +22,8 @@ import org.gradle.api.file.FileCollection;
 import org.gradle.api.internal.file.FileCollectionInternal;
 import org.gradle.api.tasks.TaskDependency;
 import org.gradle.internal.deprecation.DeprecationLogger;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.io.File;
 import java.util.Set;
 
@@ -42,7 +42,15 @@ public class DefaultFileCollectionDependency extends AbstractDependency implemen
     }
 
     @Override
+    @Deprecated
     public boolean contentEquals(Dependency dependency) {
+
+        DeprecationLogger.deprecateMethod(Dependency.class, "contentEquals(Dependency)")
+            .withAdvice("Use Object.equals(Object) instead")
+            .willBeRemovedInGradle9()
+            .withUpgradeGuideSection(8, "deprecated_content_equals")
+            .nagUser();
+
         if (!(dependency instanceof DefaultFileCollectionDependency)) {
             return false;
         }

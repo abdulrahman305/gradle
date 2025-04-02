@@ -25,15 +25,14 @@ import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.artifacts.ResolvedArtifact;
 import org.gradle.api.artifacts.ResolvedDependency;
 import org.gradle.api.artifacts.ResolvedModuleVersion;
+import org.gradle.api.internal.artifacts.configurations.ResolutionHost;
 import org.gradle.api.internal.artifacts.ivyservice.ArtifactCollectingVisitor;
 import org.gradle.api.internal.artifacts.ivyservice.modulecache.dynamicversions.DefaultResolvedModuleVersion;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.CompositeResolvedArtifactSet;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.ParallelResolveArtifactSet;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.ResolvedArtifactSet;
-import org.gradle.internal.UncheckedException;
 import org.gradle.internal.operations.BuildOperationExecutor;
 
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -42,27 +41,29 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 
-public class DefaultResolvedDependency implements ResolvedDependency, DependencyGraphNodeResult {
+public class DefaultResolvedDependency implements ResolvedDependency {
     private final Set<DefaultResolvedDependency> children = new LinkedHashSet<>();
     private final Set<ResolvedDependency> parents = new LinkedHashSet<>();
     private final ListMultimap<ResolvedDependency, ResolvedArtifactSet> parentArtifacts = ArrayListMultimap.create();
     private final String variantName;
     private final ModuleVersionIdentifier moduleVersionId;
-    private final BuildOperationExecutor buildOperationProcessor;
+    private final BuildOperationExecutor buildOperationExecutor;
+    private final ResolutionHost resolutionHost;
     private final Set<ResolvedArtifactSet> moduleArtifacts;
     private final Map<ResolvedDependency, Set<ResolvedArtifact>> allArtifactsCache = new HashMap<>();
     private Set<ResolvedArtifact> allModuleArtifactsCache;
 
-    public DefaultResolvedDependency(String variantName, ModuleVersionIdentifier moduleVersionId, BuildOperationExecutor buildOperationProcessor) {
+    public DefaultResolvedDependency(
+        String variantName,
+        ModuleVersionIdentifier moduleVersionId,
+        BuildOperationExecutor buildOperationExecutor,
+        ResolutionHost resolutionHost
+    ) {
         this.moduleVersionId = moduleVersionId;
         this.variantName = variantName;
-        this.buildOperationProcessor = buildOperationProcessor;
+        this.buildOperationExecutor = buildOperationExecutor;
+        this.resolutionHost = resolutionHost;
         this.moduleArtifacts = new LinkedHashSet<>();
-    }
-
-    @Override
-    public ResolvedDependency getPublicView() {
-        return this;
     }
 
     @Override
@@ -101,11 +102,6 @@ public class DefaultResolvedDependency implements ResolvedDependency, Dependency
     }
 
     @Override
-    public Collection<? extends DependencyGraphNodeResult> getOutgoingEdges() {
-        return children;
-    }
-
-    @Override
     public Set<ResolvedArtifact> getModuleArtifacts() {
         return sort(CompositeResolvedArtifactSet.of(moduleArtifacts));
     }
@@ -124,28 +120,23 @@ public class DefaultResolvedDependency implements ResolvedDependency, Dependency
 
     @Override
     public Set<ResolvedArtifact> getParentArtifacts(ResolvedDependency parent) {
-        return sort(getArtifactsForIncomingEdge((DependencyGraphNodeResult) parent));
+        return sort(getArtifactsForIncomingEdge(parent));
     }
 
     private Set<ResolvedArtifact> sort(ResolvedArtifactSet artifacts) {
         ArtifactCollectingVisitor visitor = new ArtifactCollectingVisitor(new TreeSet<>(new ResolvedArtifactComparator()));
-        ParallelResolveArtifactSet.wrap(artifacts, buildOperationProcessor).visit(visitor);
+        ParallelResolveArtifactSet.wrap(artifacts, buildOperationExecutor).visit(visitor);
         if (!visitor.getFailures().isEmpty()) {
-            throw UncheckedException.throwAsUncheckedException(visitor.getFailures().get(0));
+            resolutionHost.rethrowFailuresAndReportProblems("artifacts", visitor.getFailures());
         }
         return visitor.getArtifacts();
     }
 
-    @Override
-    public ResolvedArtifactSet getArtifactsForNode() {
-        return CompositeResolvedArtifactSet.of(moduleArtifacts);
-    }
-
-    private ResolvedArtifactSet getArtifactsForIncomingEdge(DependencyGraphNodeResult parent) {
+    private ResolvedArtifactSet getArtifactsForIncomingEdge(ResolvedDependency parent) {
         if (!parents.contains(parent)) {
             throw new InvalidUserDataException("Provided dependency (" + parent + ") must be a parent of: " + this);
         }
-        return CompositeResolvedArtifactSet.of(parentArtifacts.get((ResolvedDependency) parent));
+        return CompositeResolvedArtifactSet.of(parentArtifacts.get(parent));
     }
 
     @Override

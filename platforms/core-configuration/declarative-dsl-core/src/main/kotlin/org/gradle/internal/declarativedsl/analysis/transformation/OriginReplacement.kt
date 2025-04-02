@@ -43,8 +43,13 @@ object OriginReplacement {
                 is ObjectOrigin.ImplicitThisReceiver -> origin.copy(resolvedTo = replaceInReceiver(origin.resolvedTo))
                 is ObjectOrigin.PropertyDefaultValue -> origin.copy(receiver = replace(origin.receiver))
                 is ObjectOrigin.PropertyReference -> origin.copy(receiver = replace(origin.receiver))
+                is ObjectOrigin.GroupedVarargValue -> origin.copy(elementValues = origin.elementValues.map { replace(it) })
+                is ObjectOrigin.AugmentationOrigin -> origin.copy(
+                    augmentedProperty = replaceIn(origin.augmentedProperty), augmentationOperand = replace(origin.augmentationOperand), augmentationResult = replace(origin.augmentationResult)
+                )
 
                 is ObjectOrigin.ConstantOrigin,
+                is ObjectOrigin.EnumConstantOrigin,
                 is ObjectOrigin.External,
                 is ObjectOrigin.NullObjectOrigin -> origin
             }
@@ -81,10 +86,17 @@ object OriginReplacement {
                 parameterBindings = replaceInArgs(accessAndConfigureReceiver.parameterBindings)
             )
 
+        private fun replaceIn(origin: ObjectOrigin.PropertyReference) =
+            ObjectOrigin.PropertyReference(replace(origin.receiver), origin.property, origin.originElement)
+
         private
         fun replaceInArgs(
             parameterValueBinding: ParameterValueBinding,
         ): ParameterValueBinding =
-            parameterValueBinding.copy(parameterValueBinding.bindingMap.mapValues { replace(it.value) })
+            parameterValueBinding.copy(
+                bindingMap = parameterValueBinding.bindingMap.mapValues {
+                    it.value.copy(objectOrigin = replace(it.value.objectOrigin))
+                }
+            )
     }
 }

@@ -16,7 +16,7 @@
 
 package org.gradle.integtests
 
-import com.gradle.develocity.testing.annotations.LocalOnly
+import org.gradle.testdistribution.LocalOnly
 import org.gradle.integtests.fixtures.executer.GradleDistribution
 import org.gradle.integtests.fixtures.executer.IntegrationTestBuildContext
 import org.gradle.test.fixtures.server.http.BlockingHttpServer
@@ -69,7 +69,7 @@ Confirm that the 'distributionSha256Sum' property in your gradle-wrapper.propert
 Distribution Url: $gradleBin
 Download Location: $f.absolutePath
 Expected checksum: 'bad'
-Actual checksum: '$distributionHash'
+Actual checksum:   '$distributionHash'
 Visit https://gradle.org/release-checksums/ to verify the checksums of official distributions. If your build uses a custom distribution, see with its provider.
 """.trim())
     }

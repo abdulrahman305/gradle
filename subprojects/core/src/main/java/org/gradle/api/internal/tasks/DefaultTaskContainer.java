@@ -24,12 +24,10 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.NamedDomainObjectContainer;
-import org.gradle.api.NonNullApi;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.UnknownTaskException;
 import org.gradle.api.internal.CollectionCallbackActionDecorator;
-import org.gradle.api.internal.MutationGuards;
 import org.gradle.api.internal.NamedDomainObjectContainerConfigureDelegate;
 import org.gradle.api.internal.TaskInternal;
 import org.gradle.api.internal.project.CrossProjectConfigurator;
@@ -62,8 +60,9 @@ import org.gradle.model.internal.type.ModelType;
 import org.gradle.util.Path;
 import org.gradle.util.internal.ConfigureUtil;
 import org.gradle.util.internal.GUtil;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -75,7 +74,7 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-@NonNullApi
+@NullMarked
 public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements TaskContainerInternal {
     private static final Object[] NO_ARGS = new Object[0];
     public final static String EAGERLY_CREATE_LAZY_TASKS_PROPERTY = "org.gradle.internal.tasks.eager";
@@ -109,7 +108,7 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
         CollectionCallbackActionDecorator callbackDecorator,
         ProjectRegistry<ProjectInternal> projectRegistry
     ) {
-        super(Task.class, instantiator, project, MutationGuards.of(crossProjectConfigurator), callbackDecorator);
+        super(Task.class, instantiator, project, crossProjectConfigurator.getLazyBehaviorGuard(), callbackDecorator);
         this.taskIdentityFactory = taskIdentityFactory;
         this.taskFactory = taskFactory;
         taskInstantiator = new TaskInstantiator(taskIdentityFactory, taskFactory, project);
@@ -119,9 +118,10 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
         this.projectRegistry = projectRegistry;
     }
 
+    @Deprecated
     @Override
     public Task create(Map<String, ?> options) {
-        assertMutable("create(Map<String, ?>)");
+        assertCanMutate("create(Map)");
         return doCreate(options, Actions.doNothing());
     }
 
@@ -245,7 +245,7 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
                         onCreate = Cast.uncheckedCast(taskProvider.getOnCreateActions().mergeFrom(getEventRegister().getAddActions()));
                     }
 
-                    add(task, onCreate);
+                    doAdd(task, onCreate);
                     return; // Exit early as we are reusing the create actions from the provider
                 } else {
                     throw new IllegalStateException("Unnecessarily replacing a task that does not exist is not supported.  Use create() or register() directly instead.  You attempted to replace a task named '" + name + "', but there is no existing task with that name.");
@@ -271,21 +271,24 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
         return create(name, type);
     }
 
+    @Deprecated
     @Override
     public Task create(Map<String, ?> options, Closure configureClosure) throws InvalidUserDataException {
-        assertMutable("create(Map<String, ?>, Closure)");
+        assertCanMutate("create(Map, Closure)");
         return doCreate(options, ConfigureUtil.configureUsing(configureClosure));
     }
 
+    @Deprecated
     @Override
     public <T extends Task> T create(String name, Class<T> type) {
-        assertMutable("create(String, Class)");
+        assertCanMutate("create(String, Class)");
         return doCreate(name, type, NO_ARGS, Actions.doNothing());
     }
 
+    @Deprecated
     @Override
     public <T extends Task> T create(final String name, final Class<T> type, final Object... constructorArgs) throws InvalidUserDataException {
-        assertMutable("create(String, Class, Object...)");
+        assertCanMutate("create(String, Class, Object...)");
         return doCreate(name, type, constructorArgs, Actions.doNothing());
     }
 
@@ -333,15 +336,17 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
         return taskFactory.create(identity, constructorArgs);
     }
 
+    @Deprecated
     @Override
     public Task create(String name) {
-        assertMutable("create(String)");
+        assertCanMutate("create(String)");
         return doCreate(name, DefaultTask.class, NO_ARGS, Actions.doNothing());
     }
 
+    @Deprecated
     @Override
     public Task create(String name, Action<? super Task> configureAction) throws InvalidUserDataException {
-        assertMutable("create(String, Action)");
+        assertCanMutate("create(String, Action)");
         return doCreate(name, DefaultTask.class, NO_ARGS, configureAction);
     }
 
@@ -356,19 +361,21 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
 
     @Override
     public Task replace(String name) {
-        assertMutable("replace(String)");
+        assertCanMutate("replace(String)");
         return replace(name, DefaultTask.class);
     }
 
+    @Deprecated
     @Override
     public Task create(String name, Closure configureClosure) {
-        assertMutable("create(String, Closure)");
+        assertCanMutate("create(String, Closure)");
         return doCreate(name, DefaultTask.class, NO_ARGS, ConfigureUtil.configureUsing(configureClosure));
     }
 
+    @Deprecated
     @Override
     public <T extends Task> T create(String name, Class<T> type, Action<? super T> configuration) throws InvalidUserDataException {
-        assertMutable("create(String, Class, Action)");
+        assertCanMutate("create(String, Class, Action)");
         T task = create(name, type);
         configuration.execute(task);
         return task;
@@ -376,31 +383,31 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
 
     @Override
     public TaskProvider<Task> register(String name, Action<? super Task> configurationAction) throws InvalidUserDataException {
-        assertMutable("register(String, Action)");
+        assertCanMutate("register(String, Action)");
         return Cast.uncheckedCast(register(name, DefaultTask.class, configurationAction));
     }
 
     @Override
     public <T extends Task> TaskProvider<T> register(String name, Class<T> type, Action<? super T> configurationAction) throws InvalidUserDataException {
-        assertMutable("register(String, Class, Action)");
+        assertCanMutate("register(String, Class, Action)");
         return registerTask(name, type, configurationAction, NO_ARGS);
     }
 
     @Override
     public <T extends Task> TaskProvider<T> register(String name, Class<T> type) throws InvalidUserDataException {
-        assertMutable("register(String, Class)");
+        assertCanMutate("register(String, Class)");
         return register(name, type, NO_ARGS);
     }
 
     @Override
     public TaskProvider<Task> register(String name) throws InvalidUserDataException {
-        assertMutable("register(String)");
+        assertCanMutate("register(String)");
         return Cast.uncheckedCast(register(name, DefaultTask.class));
     }
 
     @Override
     public <T extends Task> TaskProvider<T> register(String name, Class<T> type, Object... constructorArgs) {
-        assertMutable("register(String, Class, Object...)");
+        assertCanMutate("register(String, Class, Object...)");
         return registerTask(name, type, null, constructorArgs);
     }
 
@@ -439,7 +446,7 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
 
     @Override
     public <T extends Task> T replace(final String name, final Class<T> type) {
-        assertMutable("replace(String, Class)");
+        assertCanMutate("replace(String, Class)");
         final TaskIdentity<T> identity = taskIdentityFactory.create(name, type, project);
         return buildOperationRunner.call(new CallableBuildOperation<T>() {
             @Override
@@ -463,7 +470,7 @@ public class DefaultTaskContainer extends DefaultTaskCollection<Task> implements
 
     @Override
     public <T extends Task> T createWithoutConstructor(String name, Class<T> type, long uniqueId) {
-        assertMutable("createWithoutConstructor(String, Class, Object...)");
+        assertCanMutate("createWithoutConstructor(String, Class, Object...)");
         return doCreate(taskIdentityFactory.recreate(name, type, project, uniqueId), null, Actions.doNothing());
     }
 

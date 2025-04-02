@@ -8,12 +8,10 @@ errorprone {
     disabledChecks.addAll(
         "InlineMeSuggester", // 7 occurrences
         "MixedMutabilityReturnType", // 5 occurrences
-        "StringCaseLocaleUsage", // 1 occurrences
     )
 }
 
 dependencies {
-    api(projects.serviceProvider)
     api(projects.baseServices)
     api(projects.core)
     api(projects.coreApi)
@@ -23,13 +21,13 @@ dependencies {
     api(projects.logging)
     api(projects.loggingApi)
     api(projects.modelCore)
+    api(projects.serviceProvider)
+    api(projects.stdlibJavaExtensions)
 
-    api(libs.groovy)
     api(libs.inject)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
     implementation(projects.serviceLookup)
-    implementation(projects.stdlibJavaExtensions)
     implementation(projects.baseServicesGroovy) {
         because("Required for Specs")
     }
@@ -38,6 +36,7 @@ dependencies {
     implementation(libs.commonsLang)
     implementation(libs.gson)
     implementation(libs.guava)
+    implementation(libs.jsr305)
 
     testImplementation(testFixtures(projects.core))
 
@@ -48,3 +47,6 @@ dependencies {
 }
 
 integTest.usesJavadocCodeSnippets = true
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

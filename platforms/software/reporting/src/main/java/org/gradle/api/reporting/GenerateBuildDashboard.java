@@ -23,20 +23,18 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.NamedDomainObjectSet;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
-import org.gradle.api.internal.CollectionCallbackActionDecorator;
 import org.gradle.api.reporting.internal.BuildDashboardGenerator;
 import org.gradle.api.reporting.internal.DefaultBuildDashboardReports;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.internal.Cast;
+import org.gradle.internal.Describables;
 import org.gradle.internal.instrumentation.api.annotations.ToBeReplacedByLazyProperty;
-import org.gradle.internal.reflect.Instantiator;
 import org.gradle.util.internal.ClosureBackedAction;
 import org.gradle.util.internal.CollectionUtils;
 import org.gradle.work.DisableCachingByDefault;
 
-import javax.inject.Inject;
 import java.io.File;
 import java.io.Serializable;
 import java.util.Arrays;
@@ -54,22 +52,12 @@ public abstract class GenerateBuildDashboard extends DefaultTask implements Repo
     private final BuildDashboardReports reports;
 
     public GenerateBuildDashboard() {
-        reports = getInstantiator().newInstance(DefaultBuildDashboardReports.class, this, getCollectionCallbackActionDecorator());
+        reports = getProject().getObjects().newInstance(DefaultBuildDashboardReports.class, Describables.quoted("Task", getIdentityPath()));
         reports.getHtml().getRequired().set(true);
     }
 
-    @Inject
-    protected Instantiator getInstantiator() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Inject
-    protected CollectionCallbackActionDecorator getCollectionCallbackActionDecorator() {
-        throw new UnsupportedOperationException();
-    }
-
     @Input
-    @ToBeReplacedByLazyProperty
+    @ToBeReplacedByLazyProperty(unreported = true, comment = "Skipped for report since ReportState is private")
     public Set<ReportState> getInputReports() {
         Set<ReportState> inputs = new LinkedHashSet<ReportState>();
         for (Report report : getEnabledInputReports()) {

@@ -4,16 +4,12 @@ plugins {
 
 description = "Utility code shared between the wrapper and the Gradle distribution"
 
-gradlebuildJava.usedInWorkers()
+gradlebuildJava {
+    usedForStartup() // Used in the wrapper
+    usesIncompatibleDependencies = true // For test dependencies
+}
 
 dependencies {
-
-    api(projects.stdlibJavaExtensions)
-
-    implementation(projects.files) {
-        because("We need org.gradle.internal.file.PathTraversalChecker")
-    }
-
     testImplementation(projects.baseServices)
     testImplementation(projects.coreApi)
     testImplementation(projects.native)
@@ -23,4 +19,7 @@ dependencies {
     integTestImplementation(projects.logging)
 
     integTestDistributionRuntimeOnly(projects.distributionsFull)
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

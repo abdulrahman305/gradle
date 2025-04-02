@@ -18,8 +18,8 @@ package org.gradle.api.internal.artifacts.result;
 
 import org.gradle.api.artifacts.result.ResolvedComponentResult;
 import org.gradle.api.artifacts.result.ResolvedVariantResult;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.util.List;
 
 public interface ResolvedComponentResultInternal extends ResolvedComponentResult {
@@ -49,4 +49,12 @@ public interface ResolvedComponentResultInternal extends ResolvedComponentResult
      * @since 7.5
      */
     List<ResolvedVariantResult> getAvailableVariants();
+
+    /**
+     * Get a variant by its node ID.
+     *
+     * @return null if this component does not have a variant with the specified ID.
+     */
+    @Nullable
+    ResolvedVariantResult getVariant(long id);
 }

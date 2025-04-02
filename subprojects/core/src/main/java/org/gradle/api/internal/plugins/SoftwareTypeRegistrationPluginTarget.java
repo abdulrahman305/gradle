@@ -18,15 +18,15 @@ package org.gradle.api.internal.plugins;
 
 import com.google.common.reflect.TypeToken;
 import org.gradle.api.InvalidUserDataException;
-import org.gradle.api.NonNullApi;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.initialization.Settings;
+import org.gradle.api.internal.plugins.software.RegistersSoftwareTypes;
 import org.gradle.api.internal.plugins.software.SoftwareType;
 import org.gradle.api.internal.tasks.properties.InspectionScheme;
-import org.gradle.api.internal.plugins.software.RegistersSoftwareTypes;
 import org.gradle.api.problems.Severity;
 import org.gradle.api.problems.internal.GradleCoreProblemGroup;
+import org.gradle.api.problems.internal.InternalProblems;
 import org.gradle.configuration.ConfigurationTargetIdentifier;
 import org.gradle.internal.Cast;
 import org.gradle.internal.exceptions.DefaultMultiCauseException;
@@ -34,8 +34,9 @@ import org.gradle.internal.properties.annotations.TypeMetadata;
 import org.gradle.internal.reflect.DefaultTypeValidationContext;
 import org.gradle.internal.reflect.validation.TypeValidationProblemRenderer;
 import org.gradle.plugin.software.internal.SoftwareTypeRegistry;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -46,16 +47,18 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
  * A {@link PluginTarget} that inspects the plugin for {@link RegistersSoftwareTypes} annotations and registers the
  * specified software type plugins with the {@link SoftwareTypeRegistry} prior to applying the plugin via the delegate.
  */
-@NonNullApi
+@NullMarked
 public class SoftwareTypeRegistrationPluginTarget implements PluginTarget {
     private final PluginTarget delegate;
     private final SoftwareTypeRegistry softwareTypeRegistry;
     private final InspectionScheme inspectionScheme;
+    private final InternalProblems problems;
 
-    public SoftwareTypeRegistrationPluginTarget(PluginTarget delegate, SoftwareTypeRegistry softwareTypeRegistry, InspectionScheme inspectionScheme) {
+    public SoftwareTypeRegistrationPluginTarget(PluginTarget delegate, SoftwareTypeRegistry softwareTypeRegistry, InspectionScheme inspectionScheme, InternalProblems problems) {
         this.delegate = delegate;
         this.softwareTypeRegistry = softwareTypeRegistry;
         this.inspectionScheme = inspectionScheme;
+        this.problems = problems;
     }
 
     @Override
@@ -99,7 +102,7 @@ public class SoftwareTypeRegistrationPluginTarget implements PluginTarget {
     }
 
     void validateSoftwareTypePluginExposesExactlyOneSoftwareType(Class<? extends Plugin<Project>> softwareTypePluginImplClass, Class<?> registeringPlugin) {
-        DefaultTypeValidationContext typeValidationContext = DefaultTypeValidationContext.withRootType(softwareTypePluginImplClass, false);
+        DefaultTypeValidationContext typeValidationContext = DefaultTypeValidationContext.withRootType(softwareTypePluginImplClass, false, problems);
         TypeToken<?> softwareTypePluginImplType = TypeToken.of(softwareTypePluginImplClass);
         TypeMetadata softwareTypePluginImplMetadata = inspectionScheme.getMetadataStore().getTypeMetadata(softwareTypePluginImplType.getRawType());
         softwareTypePluginImplMetadata.visitValidationFailures(null, typeValidationContext);

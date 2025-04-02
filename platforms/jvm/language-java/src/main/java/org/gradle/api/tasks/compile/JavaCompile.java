@@ -25,6 +25,7 @@ import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.internal.file.FileOperations;
 import org.gradle.api.internal.file.FileTreeInternal;
 import org.gradle.api.internal.file.temp.TemporaryFileProvider;
+import org.gradle.api.internal.provider.PropertyFactory;
 import org.gradle.api.internal.tasks.compile.CleaningJavaCompiler;
 import org.gradle.api.internal.tasks.compile.CommandLineJavaCompileSpec;
 import org.gradle.api.internal.tasks.compile.CompilationSourceDirs;
@@ -55,6 +56,7 @@ import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.SkipWhenEmpty;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.WorkResult;
+import org.gradle.internal.deprecation.DeprecationLogger;
 import org.gradle.internal.file.Deleter;
 import org.gradle.internal.instrumentation.api.annotations.ToBeReplacedByLazyProperty;
 import org.gradle.internal.jvm.DefaultModularitySpec;
@@ -104,7 +106,7 @@ public abstract class JavaCompile extends AbstractCompile implements HasCompileO
         modularity = objectFactory.newInstance(DefaultModularitySpec.class);
         JavaToolchainService javaToolchainService = getJavaToolchainService();
         Provider<JavaCompiler> javaCompilerConvention = getProviderFactory()
-            .provider(() -> JavaCompileExecutableUtils.getExecutableOverrideToolchainSpec(this, objectFactory))
+            .provider(() -> JavaCompileExecutableUtils.getExecutableOverrideToolchainSpec(this, getPropertyFactory()))
             .flatMap(javaToolchainService::compilerFor)
             .orElse(javaToolchainService.compilerFor(it -> {}));
         javaCompiler = objectFactory.property(JavaCompiler.class).convention(javaCompilerConvention);
@@ -261,7 +263,8 @@ public abstract class JavaCompile extends AbstractCompile implements HasCompileO
         File toolchainJavaHome = javaCompilerTool.getMetadata().getInstallationPath().getAsFile();
 
         ForkOptions forkOptions = getOptions().getForkOptions();
-        File customJavaHome = forkOptions.getJavaHome();
+        @SuppressWarnings("deprecation")
+        File customJavaHome = DeprecationLogger.whileDisabled(forkOptions::getJavaHome);
         if (customJavaHome != null) {
             JavaExecutableUtils.validateMatchingFiles(
                 customJavaHome, "Toolchain from `javaHome` property on `ForkOptions`",
@@ -366,6 +369,11 @@ public abstract class JavaCompile extends AbstractCompile implements HasCompileO
 
     @Inject
     protected ObjectFactory getObjectFactory() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Inject
+    protected PropertyFactory getPropertyFactory() {
         throw new UnsupportedOperationException();
     }
 

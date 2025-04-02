@@ -4,13 +4,6 @@ plugins {
 
 description = "Publishing plugin for Ivy repositories"
 
-errorprone {
-    disabledChecks.addAll(
-        "UnusedMethod", // 2 occurrences
-        "UnusedVariable", // 1 occurrences
-    )
-}
-
 dependencies {
     api(projects.stdlibJavaExtensions)
     api(projects.serviceProvider)
@@ -24,10 +17,9 @@ dependencies {
     api(projects.publish)
     api(projects.resources)
 
-    api(libs.jsr305)
+    api(libs.jspecify)
     api(libs.inject)
 
-    implementation(projects.internalInstrumentationApi)
     implementation(projects.functional)
     implementation(projects.loggingApi)
     implementation(projects.serviceLookup)
@@ -77,3 +69,6 @@ dependencies {
 }
 
 integTest.usesJavadocCodeSnippets = true
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

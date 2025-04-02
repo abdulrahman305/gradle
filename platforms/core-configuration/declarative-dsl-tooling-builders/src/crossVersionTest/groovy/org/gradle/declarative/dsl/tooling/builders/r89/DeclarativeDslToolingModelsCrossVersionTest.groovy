@@ -29,16 +29,17 @@ import org.gradle.internal.declarativedsl.evaluator.main.SimpleAnalysisEvaluator
 import org.gradle.internal.declarativedsl.evaluator.runner.AnalysisStepResult
 import org.gradle.internal.declarativedsl.evaluator.runner.EvaluationResult
 import org.gradle.internal.declarativedsl.language.SourceIdentifier
-import org.gradle.internal.declarativedsl.objectGraph.AssignmentResolver.AssignmentResolutionResult.Assigned
+import org.gradle.internal.declarativedsl.objectGraph.PropertyLinksResolver.AssignmentResolutionResult.Assigned
 import org.gradle.internal.declarativedsl.parsing.DefaultLanguageTreeBuilder
 import org.gradle.internal.declarativedsl.parsing.ParserKt
 import org.gradle.test.fixtures.plugin.PluginBuilder
 import org.gradle.tooling.events.ProgressEvent
 import org.gradle.tooling.events.ProgressListener
 import org.gradle.tooling.events.lifecycle.BuildPhaseStartEvent
+import org.gradle.util.GradleVersion
 
-@TargetGradleVersion(">=8.9")
-@ToolingApiVersion('>=8.9')
+@TargetGradleVersion(">=8.11")
+@ToolingApiVersion('>=8.11')
 class DeclarativeDslToolingModelsCrossVersionTest extends AbstractDeclarativeDslToolingModelsCrossVersionTest {
 
     def setup() {
@@ -64,7 +65,7 @@ class DeclarativeDslToolingModelsCrossVersionTest extends AbstractDeclarativeDsl
         model != null
 
         def schema = model.getProjectSchema()
-        !schema.dataClassesByFqName.isEmpty()
+        !schema.dataClassTypesByFqName.isEmpty()
     }
 
     def 'model is obtained without configuring the project'() {
@@ -87,7 +88,7 @@ class DeclarativeDslToolingModelsCrossVersionTest extends AbstractDeclarativeDsl
 
     def 'schema contains custom software type from included build'() {
         given:
-        withSoftwareTypePlugins().prepareToExecute()
+        withSoftwareTypePlugins(targetVersion).prepareToExecute()
 
         file("settings.gradle.dcl") << ecosystemPluginInSettings
 
@@ -105,21 +106,23 @@ class DeclarativeDslToolingModelsCrossVersionTest extends AbstractDeclarativeDsl
         !topLevelFunctions.find { it.contains("simpleName=testSoftwareType") }
     }
 
-    @TargetGradleVersion(">=8.10")
     def 'interpretation sequences obtained via TAPI are suitable for analysis'() {
         given:
-        withSoftwareTypePlugins().prepareToExecute()
+        withSoftwareTypePlugins(targetVersion).prepareToExecute()
 
         file("settings.gradle.dcl") << """
             $ecosystemPluginInSettings
             defaults {
                 testSoftwareType {
                     id = "default"
+                    foo {
+                        ${targetVersion >= GradleVersion.version("8.14") ? 'baz = listOf("qux")' : ''}
+                    }
                 }
             }
         """
 
-        file("build.gradle.dcl") << declarativeScriptThatConfiguresOnlyTestSoftwareTypeFoo
+        file("build.gradle.dcl") << declarativeScriptThatConfiguresOnlyTestSoftwareTypeFoo(targetVersion)
 
         when:
         DeclarativeSchemaModel model = fetchSchemaModel(DeclarativeSchemaModel.class)
@@ -135,7 +138,7 @@ class DeclarativeDslToolingModelsCrossVersionTest extends AbstractDeclarativeDsl
         and: 'defaults get properly applied'
         // check the conventions in the resolution results, they should be there, and it is independent of the DOM overlay
         def projectEvaluated = project.stepResults.values()[0] as EvaluationResult.Evaluated<AnalysisStepResult>
-        projectEvaluated.stepResult.assignmentTrace.resolvedAssignments.entrySet().any {
+        projectEvaluated.stepResult.propertyLinkTrace.finalAssignments.entrySet().any {
             it.key.property.name == "id" && ((it.value as Assigned).objectOrigin as ObjectOrigin.ConstantOrigin).literal.value == "default"
         }
 
@@ -150,6 +153,10 @@ class DeclarativeDslToolingModelsCrossVersionTest extends AbstractDeclarativeDsl
                 unresolvedId = "default"
                 foo {
                     bar = "baz"
+                    ${targetVersion >= GradleVersion.version("8.14") ? """
+                    baz = listOf("qux")
+                    baz += listOf("quux")
+                    """ : ''}
                 }
             }
             unresolvedToTestErrorHandling()
@@ -181,17 +188,20 @@ class DeclarativeDslToolingModelsCrossVersionTest extends AbstractDeclarativeDsl
         """
     }
 
-    static String getDeclarativeScriptThatConfiguresOnlyTestSoftwareTypeFoo() {
+    static String declarativeScriptThatConfiguresOnlyTestSoftwareTypeFoo(GradleVersion targetVersion) {
         return """
             testSoftwareType {
                 foo {
                     bar = "baz"
+                    ${targetVersion >= GradleVersion.version("8.14") ? """
+                    baz += listOf("quux")
+                    """ : ""}
                 }
             }
         """
     }
 
-    PluginBuilder withSoftwareTypePlugins() {
+    PluginBuilder withSoftwareTypePlugins(GradleVersion gradleVersion = GradleVersion.current()) {
         def pluginBuilder = new PluginBuilder(file("plugins"))
         pluginBuilder.addPluginId("com.example.test-software-type-impl", "SoftwareTypeImplPlugin")
         pluginBuilder.addPluginId("com.example.another-software-type-impl", "AnotherSoftwareTypeImplPlugin")
@@ -208,6 +218,7 @@ class DeclarativeDslToolingModelsCrossVersionTest extends AbstractDeclarativeDsl
             import org.gradle.api.provider.ListProperty;
             import org.gradle.api.provider.Property;
 
+            import java.util.ArrayList;
             import javax.inject.Inject;
 
             @Restricted
@@ -237,10 +248,18 @@ class DeclarativeDslToolingModelsCrossVersionTest extends AbstractDeclarativeDsl
                 public abstract static class Foo {
                     public Foo() {
                         this.getBar().convention("nothing");
+                        ${gradleVersion >= GradleVersion.version("8.14") ? """
+                        this.getBaz().convention(new ArrayList<>());
+                        """ : ""}
                     }
 
                     @Restricted
                     public abstract Property<String> getBar();
+
+                    ${gradleVersion >= GradleVersion.version("8.14") ? """
+                    @Restricted
+                    public abstract ListProperty<String> getBaz();
+                    """ : ""}
                 }
             }
         """
@@ -295,6 +314,10 @@ class DeclarativeDslToolingModelsCrossVersionTest extends AbstractDeclarativeDsl
                         task.doLast("print restricted extension content", t -> {
                             System.out.println("id = " + extension.getId().get());
                             System.out.println("bar = " + extension.getFoo().getBar().get());
+
+                            ${gradleVersion >= GradleVersion.version("8.14") ? """
+                            System.out.println("baz = " + extension.getFoo().getBaz().get());
+                            """ : ""}
                         });
                     });
                 }

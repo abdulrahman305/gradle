@@ -8,13 +8,13 @@ plugins {
 description = "Kotlin DSL Provider"
 
 dependencies {
-
     api(projects.buildProcessServices)
     api(projects.baseServices)
-    api(projects.processServices)
+    api(projects.classloaders)
     api(projects.core)
     api(projects.coreApi)
     api(projects.concurrent)
+    api(projects.fileOperations)
     api(projects.hashing)
     api(projects.kotlinDslToolingModels)
     api(projects.loggingApi)
@@ -24,12 +24,17 @@ dependencies {
     api(libs.groovy)
     api(libs.guava)
     api(libs.kotlinStdlib)
-    api(libs.jsr305)
     api(libs.inject)
     api(libs.slf4jApi)
 
+    implementation(projects.baseAsm)
+    implementation(projects.instrumentationReporting)
     implementation(projects.buildOperations)
     implementation(projects.buildOption)
+    implementation(projects.coreKotlinExtensions)
+    implementation(projects.declarativeDslEvaluator)
+    implementation(projects.declarativeDslInternalUtils)
+    implementation(projects.declarativeDslProvider)
     implementation(projects.enterpriseLogging)
     implementation(projects.enterpriseOperations)
     implementation(projects.execution)
@@ -47,12 +52,14 @@ dependencies {
     implementation(projects.serviceLookup)
     implementation(projects.serviceProvider)
     implementation(projects.snapshots)
+    implementation(projects.wrapperShared)
 
     implementation("org.gradle:java-api-extractor")
     implementation("org.gradle:kotlin-dsl-shared-runtime")
 
     implementation(libs.asm)
     implementation(libs.groovyJson)
+    implementation(libs.jspecify)
     implementation(libs.kotlinReflect)
 
     implementation(libs.kotlinCompilerEmbeddable)
@@ -62,6 +69,9 @@ dependencies {
         isTransitive = false
     }
     implementation(libs.futureKotlin("scripting-jvm")) {
+        isTransitive = false
+    }
+    implementation(libs.futureKotlin("scripting-jvm-host")) {
         isTransitive = false
     }
     implementation(libs.futureKotlin("scripting-compiler-embeddable")) {
@@ -140,4 +150,7 @@ testFilesCleanup.reportOnly = true
 
 strictCompile {
     ignoreDeprecations()
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

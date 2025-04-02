@@ -27,8 +27,8 @@ import org.gradle.tooling.ToolingModelContract;
 import org.gradle.tooling.model.DomainObjectSet;
 import org.gradle.tooling.model.internal.Exceptions;
 import org.gradle.tooling.model.internal.ImmutableDomainObjectSet;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
@@ -50,10 +50,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -143,6 +145,9 @@ public class ProtocolToModelAdapter implements ObjectGraphAdapter {
     private static <T> T createView(Class<T> targetType, @Nullable Object sourceObject, ViewDecoration decoration, ViewGraphDetails graphDetails) {
         if (sourceObject == null) {
             return null;
+        }
+        if (sourceObject instanceof Supplier) {
+            return createView(targetType, ((Supplier<?>) sourceObject).get(), decoration, graphDetails);
         }
 
         // Calculate the actual type
@@ -320,7 +325,7 @@ public class ProtocolToModelAdapter implements ObjectGraphAdapter {
             if (builder.length() > 0) {
                 builder.append(separator);
             }
-            String group1 = matcher.group(1).toLowerCase();
+            String group1 = matcher.group(1).toLowerCase(Locale.ROOT);
             String group2 = matcher.group(2);
             if (group2.length() == 0) {
                 builder.append(group1);

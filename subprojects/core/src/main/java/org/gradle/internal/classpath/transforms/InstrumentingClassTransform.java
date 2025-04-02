@@ -17,6 +17,7 @@
 package org.gradle.internal.classpath.transforms;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.commons.lang3.ArrayUtils;
 import org.codehaus.groovy.runtime.callsite.CallSiteArray;
 import org.codehaus.groovy.vmplugin.v8.IndyInterface;
 import org.gradle.api.file.RelativePath;
@@ -27,21 +28,26 @@ import org.gradle.internal.classpath.ClasspathEntryVisitor;
 import org.gradle.internal.classpath.Instrumented;
 import org.gradle.internal.classpath.intercept.CallInterceptorRegistry;
 import org.gradle.internal.classpath.intercept.JvmBytecodeInterceptorSet;
+import org.gradle.internal.classpath.types.InstrumentationTypeRegistry;
 import org.gradle.internal.hash.Hasher;
 import org.gradle.internal.instrumentation.api.jvmbytecode.BridgeMethodBuilder;
 import org.gradle.internal.instrumentation.api.jvmbytecode.JvmBytecodeCallInterceptor;
 import org.gradle.internal.instrumentation.api.metadata.InstrumentationMetadata;
 import org.gradle.internal.instrumentation.api.types.BytecodeInterceptorFilter;
+import org.gradle.internal.instrumentation.reporting.listener.MethodInterceptionListener;
 import org.gradle.internal.lazy.Lazy;
 import org.gradle.model.internal.asm.MethodVisitorScope;
+import org.jspecify.annotations.Nullable;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.MethodNode;
 
-import javax.annotation.Nullable;
 import java.lang.invoke.CallSite;
+import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.Collection;
@@ -51,14 +57,16 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static org.gradle.internal.classanalysis.AsmConstants.ASM_LEVEL;
 import static org.gradle.internal.classpath.transforms.CommonTypes.NO_EXCEPTIONS;
 import static org.gradle.internal.classpath.transforms.CommonTypes.STRING_TYPE;
 import static org.gradle.internal.instrumentation.api.types.BytecodeInterceptorFilter.INSTRUMENTATION_ONLY;
+import static org.gradle.model.internal.asm.AsmConstants.ASM_LEVEL;
 import static org.objectweb.asm.Opcodes.ACC_PRIVATE;
 import static org.objectweb.asm.Opcodes.ACC_STATIC;
 import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
+import static org.objectweb.asm.Opcodes.H_INVOKEINTERFACE;
 import static org.objectweb.asm.Opcodes.H_INVOKESTATIC;
+import static org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Type.INT_TYPE;
 import static org.objectweb.asm.Type.getMethodDescriptor;
@@ -69,7 +77,7 @@ public class InstrumentingClassTransform implements ClassTransform {
     /**
      * Decoration format. Increment this when making changes.
      */
-    private static final int DECORATION_FORMAT = 36;
+    private static final int DECORATION_FORMAT = 38;
 
     private static final Type INSTRUMENTED_TYPE = getType(Instrumented.class);
     private static final Type BYTECODE_INTERCEPTOR_FILTER_TYPE = Type.getType(BytecodeInterceptorFilter.class);
@@ -82,13 +90,18 @@ public class InstrumentingClassTransform implements ClassTransform {
     @SuppressWarnings("deprecation")
     private static final String GROOVY_INDY_INTERFACE_V7_TYPE = getType(org.codehaus.groovy.vmplugin.v7.IndyInterface.class).getInternalName();
     private static final String GROOVY_INDY_INTERFACE_BOOTSTRAP_METHOD_DESCRIPTOR = getMethodDescriptor(getType(CallSite.class), getType(MethodHandles.Lookup.class), STRING_TYPE, getType(MethodType.class), STRING_TYPE, INT_TYPE);
+    private static final String INSTRUMENTED_GROOVY_INDY_INTERFACE_BOOTSTRAP_METHOD_DESCRIPTOR = getMethodDescriptor(getType(CallSite.class), getType(MethodHandles.Lookup.class), STRING_TYPE, getType(MethodType.class), STRING_TYPE, INT_TYPE, STRING_TYPE);
 
     private static final String INSTRUMENTED_CALL_SITE_METHOD = "$instrumentedCallSiteArray";
     private static final String CREATE_CALL_SITE_ARRAY_METHOD = "$createCallSiteArray";
 
+    private static final String LAMBDA_METAFACTORY_TYPE = getType(LambdaMetafactory.class).getInternalName();
+
     private static final AdhocInterceptors ADHOC_INTERCEPTORS = new AdhocInterceptors();
 
     private final JvmBytecodeInterceptorSet externalInterceptors;
+    private final MethodInterceptionListener methodInterceptionListener;
+    private final InstrumentationMetadata instrumentationMetadata;
 
     @Override
     public void applyConfigurationTo(Hasher hasher) {
@@ -97,11 +110,17 @@ public class InstrumentingClassTransform implements ClassTransform {
     }
 
     public InstrumentingClassTransform() {
-        this(INSTRUMENTATION_ONLY);
+        this(INSTRUMENTATION_ONLY, InstrumentationTypeRegistry.EMPTY);
     }
 
-    public InstrumentingClassTransform(BytecodeInterceptorFilter interceptorFilter) {
+    public InstrumentingClassTransform(BytecodeInterceptorFilter interceptorFilter, InstrumentationTypeRegistry typeRegistry) {
+        this(interceptorFilter, typeRegistry, MethodInterceptionListener.NO_OP);
+    }
+
+    public InstrumentingClassTransform(BytecodeInterceptorFilter interceptorFilter, InstrumentationTypeRegistry typeRegistry, MethodInterceptionListener methodInterceptionListener) {
         this.externalInterceptors = CallInterceptorRegistry.getJvmBytecodeInterceptors(interceptorFilter);
+        this.methodInterceptionListener = methodInterceptionListener;
+        this.instrumentationMetadata = (type, superType) -> typeRegistry.getSuperTypes(type).contains(superType);
     }
 
     private BytecodeInterceptorFilter interceptorFilter() {
@@ -115,7 +134,7 @@ public class InstrumentingClassTransform implements ClassTransform {
     @Override
     public Pair<RelativePath, ClassVisitor> apply(ClasspathEntryVisitor.Entry entry, ClassVisitor visitor, ClassData classData) {
         // TODO(mlopatkin) can we reuse interceptors in a bigger scope, not per class, but per artifact?
-        List<JvmBytecodeCallInterceptor> interceptors = buildInterceptors(classData);
+        List<JvmBytecodeCallInterceptor> interceptors = buildInterceptors(instrumentationMetadata);
         if (interceptorFilter().matches(ADHOC_INTERCEPTORS)) {
             interceptors = ImmutableList.<JvmBytecodeCallInterceptor>builderWithExpectedSize(interceptors.size() + 1).add(ADHOC_INTERCEPTORS).addAll(interceptors).build();
         }
@@ -127,7 +146,8 @@ public class InstrumentingClassTransform implements ClassTransform {
                 ),
                 classData,
                 interceptors,
-                interceptorFilter()
+                interceptorFilter(),
+                methodInterceptionListener
             )
         );
     }
@@ -148,22 +168,39 @@ public class InstrumentingClassTransform implements ClassTransform {
         private final BytecodeInterceptorFilter interceptorFilter;
 
         private final Map<Handle, BridgeMethod> bridgeMethods = new LinkedHashMap<>();
+        private final MethodInterceptionListener methodInterceptionListener;
         private int nextBridgeMethodIndex;
 
+        private boolean isInterface;
         private String className;
+        private String sourceFileName;
         private boolean hasGroovyCallSites;
 
-        public InstrumentingVisitor(ClassVisitor visitor, ClassData classData, List<JvmBytecodeCallInterceptor> interceptors, BytecodeInterceptorFilter interceptorFilter) {
+        public InstrumentingVisitor(
+            ClassVisitor visitor,
+            ClassData classData,
+            List<JvmBytecodeCallInterceptor> interceptors,
+            BytecodeInterceptorFilter interceptorFilter,
+            MethodInterceptionListener methodInterceptionListener
+        ) {
             super(ASM_LEVEL, visitor);
             this.classData = classData;
             this.interceptors = interceptors;
             this.interceptorFilter = interceptorFilter;
+            this.methodInterceptionListener = methodInterceptionListener;
         }
 
         @Override
         public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
             super.visit(version, access, name, signature, superName, interfaces);
+            this.isInterface = (access & Opcodes.ACC_INTERFACE) != 0;
             this.className = name;
+        }
+
+        @Override
+        public void visitSource(String source, String debug) {
+            this.sourceFileName = source;
+            super.visitSource(source, debug);
         }
 
         @Override
@@ -178,7 +215,7 @@ public class InstrumentingClassTransform implements ClassTransform {
                 ).findFirst();
                 return methodNode.orElseThrow(() -> new IllegalStateException("could not find method " + name + " with descriptor " + descriptor));
             });
-            return new InstrumentingMethodVisitor(this, methodVisitor, asMethodNode, interceptors, interceptorFilter);
+            return new InstrumentingMethodVisitor(this, methodVisitor, asMethodNode);
         }
 
         @Override
@@ -219,16 +256,61 @@ public class InstrumentingClassTransform implements ClassTransform {
          * @return the bridge method that intercepts the original method or null if there is no interceptor
          */
         @Nullable
-        public BridgeMethod findBridgeMethodFor(Handle originalHandle) {
-            return bridgeMethods.computeIfAbsent(originalHandle, this::maybeBuildBridgeMethod);
+        public BridgeMethod findBridgeMethodFor(Type factoryMethodType, Handle originalHandle) {
+            Handle targetHandle = originalHandle;
+            if ((originalHandle.getTag() == H_INVOKEVIRTUAL || originalHandle.getTag() == H_INVOKEINTERFACE) && factoryMethodType.getArgumentCount() > 0) {
+                // This is a bound instance method, like myFile::exists. The receiver is the first (only?) captured argument,
+                // which is passed to the `factoryMethodType`. An unbound reference, like File::exists, has no captured arguments at all.
+
+                // As elsewhere, if the implementation is rewritten, the original method reference is going to be replaced by a reference to a static method.
+                // However, there is a caveat: static method argument type checking is stricter.
+                // It is possible for the captured receiver argument (of the factory method type) to be a subtype of the method's receiver.
+                // For example, you can have `class MyFile extends File {}`, and capture new MyFile()::exists. The method reference is to the File::exists,
+                // but the factoryMethodType accepts MyFile. This is happily accepted by the LambdaMetafactory.
+
+                // If we simply rewrite the `File::exists` to a reference to `static boolean exists_bridge(File)`, then the LambdaMetafactory will complain,
+                // because the static method argument is no longer a receiver.
+                // To work around that we get the exact receiver type and use it as an interceptor argument, so in our example we will generate
+                // `static boolean exists_bridge(MyFile)`.
+                Type exactReceiverType = factoryMethodType.getArgumentTypes()[0];
+                if (!exactReceiverType.equals(Type.getObjectType(originalHandle.getOwner()))) {
+                    targetHandle = new Handle(
+                        originalHandle.getTag(),
+                        exactReceiverType.getInternalName(),
+                        originalHandle.getName(),
+                        originalHandle.getDesc(),
+                        originalHandle.isInterface()
+                    );
+                }
+            }
+            // We use the target handle to look up bridge methods, but original handle to find the base builders for them.
+            // The found bridge builder is refined based on the target owner.
+            // That way we only generate a single bridge method for each target owner + originalHandle.
+            String targetOwner = targetHandle.getOwner();
+            return bridgeMethods.computeIfAbsent(targetHandle, unused -> maybeBuildBridgeMethod(targetOwner, originalHandle));
         }
 
+        /**
+         * Prepares the bridge method for the {@code interceptedHandle} with proper argument types.
+         * @param targetOwner the owner type to be used by the bridge method
+         * @param interceptedHandle the method reference to potentially intercept
+         * @return the bridge method data or null if the method shouldn't be intercepted
+         */
         @Nullable
-        private BridgeMethod maybeBuildBridgeMethod(Handle handle) {
+        private BridgeMethod maybeBuildBridgeMethod(String targetOwner, Handle interceptedHandle) {
             for (JvmBytecodeCallInterceptor interceptor : interceptors) {
-                BridgeMethodBuilder methodBuilder = interceptor.findBridgeMethodBuilder(className, handle.getTag(), handle.getOwner(), handle.getName(), handle.getDesc());
+                BridgeMethodBuilder methodBuilder = interceptor.findBridgeMethodBuilder(
+                    className,
+                    interceptedHandle.getTag(),
+                    interceptedHandle.getOwner(),
+                    interceptedHandle.getName(),
+                    interceptedHandle.getDesc()
+                );
                 if (methodBuilder != null) {
-                    return new BridgeMethod(makeBridgeMethodHandle(makeBridgeMethodName(handle), methodBuilder.getBridgeMethodDescriptor()), methodBuilder);
+                    if (!targetOwner.equals(interceptedHandle.getOwner())) {
+                        methodBuilder = methodBuilder.withReceiverType(targetOwner);
+                    }
+                    return new BridgeMethod(makeBridgeMethodHandle(makeBridgeMethodName(interceptedHandle), methodBuilder.getBridgeMethodDescriptor()), methodBuilder);
                 }
             }
             return null;
@@ -258,7 +340,7 @@ public class InstrumentingClassTransform implements ClassTransform {
         }
 
         private Handle makeBridgeMethodHandle(String name, String desc) {
-            return new Handle(H_INVOKESTATIC, className, name, desc, false);
+            return new Handle(H_INVOKESTATIC, className, name, desc, isInterface);
         }
     }
 
@@ -268,20 +350,29 @@ public class InstrumentingClassTransform implements ClassTransform {
         private final Lazy<MethodNode> asNode;
         private final Collection<JvmBytecodeCallInterceptor> interceptors;
         private final BytecodeInterceptorFilter interceptorFilter;
+        private final MethodInterceptionListener methodInterceptionListener;
+        private final String sourceFileName;
+        private int methodInsLineNumber;
 
         public InstrumentingMethodVisitor(
             InstrumentingVisitor owner,
             MethodVisitor methodVisitor,
-            Lazy<MethodNode> asNode,
-            Collection<JvmBytecodeCallInterceptor> interceptors,
-            BytecodeInterceptorFilter interceptorFilter
+            Lazy<MethodNode> asNode
         ) {
             super(methodVisitor);
             this.owner = owner;
             this.className = owner.className;
+            this.sourceFileName = owner.sourceFileName;
             this.asNode = asNode;
-            this.interceptors = interceptors;
-            this.interceptorFilter = interceptorFilter;
+            this.interceptors = owner.interceptors;
+            this.interceptorFilter = owner.interceptorFilter;
+            this.methodInterceptionListener = owner.methodInterceptionListener;
+        }
+
+        @Override
+        public void visitLineNumber(int line, Label start) {
+            methodInsLineNumber = line;
+            super.visitLineNumber(line, start);
         }
 
         @Override
@@ -292,6 +383,15 @@ public class InstrumentingClassTransform implements ClassTransform {
 
             for (JvmBytecodeCallInterceptor interceptor : interceptors) {
                 if (interceptor.visitMethodInsn(this, className, opcode, owner, name, descriptor, isInterface, asNode)) {
+                    methodInterceptionListener.onInterceptedMethodInstruction(
+                        interceptor.getType(),
+                        sourceFileName,
+                        className,
+                        owner,
+                        name,
+                        descriptor,
+                        methodInsLineNumber
+                    );
                     return;
                 }
             }
@@ -309,30 +409,31 @@ public class InstrumentingClassTransform implements ClassTransform {
         @Override
         public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
             if (isGroovyIndyCallsite(bootstrapMethodHandle)) {
+                // Handle for org.gradle.internal.classpath.Instrumented.bootstrap() method
                 Handle interceptor = new Handle(
                     H_INVOKESTATIC,
                     INSTRUMENTED_TYPE.getInternalName(),
-                    getBoostrapMethodName(interceptorFilter),
-                    GROOVY_INDY_INTERFACE_BOOTSTRAP_METHOD_DESCRIPTOR,
+                    "bootstrap",
+                    INSTRUMENTED_GROOVY_INDY_INTERFACE_BOOTSTRAP_METHOD_DESCRIPTOR,
                     false
                 );
+                bootstrapMethodArguments = ArrayUtils.add(bootstrapMethodArguments, interceptorFilter.name());
                 super.visitInvokeDynamicInsn(name, descriptor, interceptor, bootstrapMethodArguments);
-            } else {
-                for (int i = 0; i < bootstrapMethodArguments.length; i++) {
-                    bootstrapMethodArguments[i] = maybeInstrumentBootstrapArgument(bootstrapMethodArguments[i]);
-                }
+            } else if (isLambdaMetafactoryCallsite(bootstrapMethodHandle, bootstrapMethodArguments)) {
+                // The bootstrap method prototypes of LambdaMetafactory.metafactory and altMetafactory goes as follows:
+                // (MethodHandles.Lookup caller, <-- JVM-provided at runtime
+                // String interfaceMethodName, <-- name
+                // MethodType factoryType, <-- descriptor
+                // MethodType interfaceMethodType, <-- bootstrapMethodArguments[0]
+                // MethodHandle implementation, <-- bootstrapMethodArguments[1]
+                // MethodType dynamicMethodType, <-- bootstrapMethodArguments[2]
+                // ... )
+                // `implementation` is the handle to the lambda implementation, which we want to potentially intercept.
+                // factoryType is the descriptor for (captured args) -> SAM interface.
+                bootstrapMethodArguments[1] = maybeInstrumentMethodReference(Type.getMethodType(descriptor), (Handle) bootstrapMethodArguments[1]);
                 super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
-            }
-        }
-
-        private static String getBoostrapMethodName(BytecodeInterceptorFilter interceptorFilter) {
-            switch (interceptorFilter) {
-                case INSTRUMENTATION_ONLY:
-                    return "bootstrapInstrumentationOnly";
-                case ALL:
-                    return "bootstrapAll";
-                default:
-                    throw new UnsupportedOperationException("Unknown interceptor request: " + interceptorFilter);
+            } else {
+                super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
             }
         }
 
@@ -343,15 +444,15 @@ public class InstrumentingClassTransform implements ClassTransform {
                 bootstrapMethodHandle.getDesc().equals(GROOVY_INDY_INTERFACE_BOOTSTRAP_METHOD_DESCRIPTOR);
         }
 
-        private Object maybeInstrumentBootstrapArgument(Object argument) {
-            if (argument instanceof Handle) {
-                return maybeInstrumentHandle((Handle) argument);
-            }
-            return argument;
+        private boolean isLambdaMetafactoryCallsite(Handle bootstrapMethodHandle, Object[] bootstrapMethodArguments) {
+            return bootstrapMethodHandle.getOwner().equals(LAMBDA_METAFACTORY_TYPE) &&
+                (bootstrapMethodHandle.getName().equals("metafactory") || bootstrapMethodHandle.getName().equals("altMetafactory")) &&
+                bootstrapMethodArguments.length >= 3 &&
+                bootstrapMethodArguments[1] instanceof Handle;
         }
 
-        private Handle maybeInstrumentHandle(Handle handle) {
-            BridgeMethod bridgeMethod = owner.findBridgeMethodFor(handle);
+        private Handle maybeInstrumentMethodReference(Type factoryMethodType, Handle handle) {
+            BridgeMethod bridgeMethod = owner.findBridgeMethodFor(factoryMethodType, handle);
             if (bridgeMethod != null) {
                 return bridgeMethod.bridgeMethodHandle;
             }

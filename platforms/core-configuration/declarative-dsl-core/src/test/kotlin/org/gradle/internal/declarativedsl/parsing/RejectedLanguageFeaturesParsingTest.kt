@@ -2,7 +2,7 @@ package org.gradle.internal.declarativedsl.parsing
 
 import org.gradle.internal.declarativedsl.language.LanguageTreeResult
 import org.gradle.internal.declarativedsl.prettyPrintLanguageResult
-import org.junit.jupiter.api.Test
+import org.junit.Test
 
 
 class RejectedLanguageFeaturesParsingTest {
@@ -411,21 +411,21 @@ class RejectedLanguageFeaturesParsingTest {
     @Test
     fun `rejects augmenting assignments`() {
         val code = """
-            a += b
+            a *= b
             a.x -= b""".trimIndent()
         val expected = """
             ErroneousStatement (
                 UnsupportedConstruct(
                     languageFeature = UnsupportedOperationInBinaryExpression,
                     potentialElementSource = indexes: 0..6, line/column: 1/1..1/7, file: test,
-                    erroneousSource = indexes: 0..6, line/column: 1/1..1/7, file: test
+                    erroneousSource = indexes: 2..4, line/column: 1/3..1/5, file: test
                 )
             )
             ErroneousStatement (
                 UnsupportedConstruct(
                     languageFeature = UnsupportedOperationInBinaryExpression,
                     potentialElementSource = indexes: 7..15, line/column: 2/1..2/9, file: test,
-                    erroneousSource = indexes: 7..15, line/column: 2/1..2/9, file: test
+                    erroneousSource = indexes: 11..13, line/column: 2/5..2/7, file: test
                 )
             )""".trimIndent()
         parse(code).assert(expected)
@@ -443,7 +443,7 @@ class RejectedLanguageFeaturesParsingTest {
                 UnsupportedConstruct(
                     languageFeature = UnsupportedOperationInBinaryExpression,
                     potentialElementSource = indexes: 5..10, line/column: 1/6..1/11, file: test,
-                    erroneousSource = indexes: 5..10, line/column: 1/6..1/11, file: test
+                    erroneousSource = indexes: 7..8, line/column: 1/8..1/9, file: test
                 )
             )""".trimIndent()
         parse(code).assert(expected)

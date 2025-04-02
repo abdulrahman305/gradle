@@ -58,7 +58,7 @@ public class SettingsScopeServices implements ServiceRegistrationProvider {
 
     public static CloseableServiceRegistry create(ServiceRegistry parent, SettingsInternal settings) {
         return ServiceRegistryBuilder.builder()
-            .scope(Scope.Settings.class)
+            .scopeStrictly(Scope.Settings.class)
             .displayName("settings services")
             .parent(parent)
             .provider(new SettingsScopeServices(settings))
@@ -111,7 +111,8 @@ public class SettingsScopeServices implements ServiceRegistrationProvider {
         PluginTarget target = new SoftwareTypeRegistrationPluginTarget(
             new ImperativeOnlyPluginTarget<>(PluginTargetType.SETTINGS, settings, problems),
             softwareTypeRegistry,
-            pluginScheme.getInspectionScheme()
+            pluginScheme.getInspectionScheme(),
+            problems
         );
         return instantiator.newInstance(DefaultPluginManager.class, pluginRegistry, instantiatorFactory.inject(settingsScopeServiceRegistry), target, buildOperationRunner, userCodeApplicationContext, decorator, domainObjectCollectionFactory);
     }

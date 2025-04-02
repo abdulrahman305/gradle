@@ -321,7 +321,9 @@ abstract class ToolingApiSpecification extends Specification implements KotlinDs
      * Returns the set of implicit task names expected for any project for the target Gradle version.
      */
     Set<String> getImplicitTasks() {
-        if (targetVersion >= GradleVersion.version("7.5")) {
+        if (targetVersion >= GradleVersion.version("8.13")) {
+            return ['artifactTransforms', 'buildEnvironment', 'components', 'dependencies', 'dependencyInsight', 'dependentComponents', 'help', 'javaToolchains', 'projects', 'properties', 'tasks', 'model', 'outgoingVariants', 'resolvableConfigurations']
+        } else if (targetVersion >= GradleVersion.version("7.5")) {
             return ['buildEnvironment', 'components', 'dependencies', 'dependencyInsight', 'dependentComponents', 'help', 'javaToolchains', 'projects', 'properties', 'tasks', 'model', 'outgoingVariants', 'resolvableConfigurations']
         } else if (targetVersion >= GradleVersion.version("6.8")) {
             return ['buildEnvironment', 'components', 'dependencies', 'dependencyInsight', 'dependentComponents', 'help', 'javaToolchains', 'projects', 'properties', 'tasks', 'model', 'outgoingVariants']
@@ -498,7 +500,7 @@ abstract class ToolingApiSpecification extends Specification implements KotlinDs
         if (filterJavaVersionDeprecation) {
             maybeExpectedDeprecations.add(normalizeDeprecationWarning(
                 "Executing Gradle on JVM versions 16 and lower has been deprecated. " +
-                    "This will fail with an error in Gradle X. " +
+                    "This will fail with an error in Gradle 9.0. " +
                     "Use JVM 17 or greater to execute Gradle. " +
                     "Projects can continue to use older JVM versions via toolchains. " +
                     "Consult the upgrading guide for further information: " +
@@ -534,11 +536,8 @@ abstract class ToolingApiSpecification extends Specification implements KotlinDs
     }
 
     private String normalizeDeprecationWarning(String message) {
-        def nextMajorVersion = Integer.parseInt(targetDist.version.version.split("\\.")[0]) + 1
-
         def normalizedLink = DocumentationUtils.normalizeDocumentationLink(message, targetDist.version)
-        def normalizedVersion = normalizedLink.replaceAll("Gradle X", "Gradle ${nextMajorVersion}.0")
 
-        return normalizedVersion
+        return normalizedLink
     }
 }

@@ -16,7 +16,6 @@
 
 package org.gradle.api.internal.artifacts;
 
-import groovy.lang.Closure;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.ExternalModuleDependency;
@@ -30,14 +29,14 @@ import org.gradle.api.internal.artifacts.dependencies.DefaultExternalModuleDepen
 import org.gradle.api.internal.artifacts.dsl.dependencies.DependencyFactoryInternal;
 import org.gradle.api.internal.artifacts.dsl.dependencies.ModuleFactoryHelper;
 import org.gradle.api.internal.artifacts.dsl.dependencies.ProjectFinder;
-import org.gradle.api.internal.attributes.ImmutableAttributesFactory;
+import org.gradle.api.internal.attributes.AttributesFactory;
 import org.gradle.api.internal.notations.DependencyNotationParser;
 import org.gradle.api.internal.notations.ProjectDependencyFactory;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.internal.reflect.Instantiator;
 import org.gradle.internal.typeconversion.NotationParser;
+import org.jspecify.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.util.Map;
 
 
@@ -45,25 +44,21 @@ public class DefaultDependencyFactory implements DependencyFactoryInternal {
     private final Instantiator instantiator;
     private final DependencyNotationParser dependencyNotationParser;
 
-    @SuppressWarnings("deprecation")
-    private final NotationParser<Object, org.gradle.api.artifacts.ClientModule> clientModuleNotationParser;
     private final NotationParser<Object, Capability> capabilityNotationParser;
     private final ObjectFactory objectFactory;
     private final ProjectDependencyFactory projectDependencyFactory;
-    private final ImmutableAttributesFactory attributesFactory;
+    private final AttributesFactory attributesFactory;
 
     public DefaultDependencyFactory(
         Instantiator instantiator,
         DependencyNotationParser dependencyNotationParser,
-        @SuppressWarnings("deprecation") NotationParser<Object, org.gradle.api.artifacts.ClientModule> clientModuleNotationParser,
         NotationParser<Object, Capability> capabilityNotationParser,
         ObjectFactory objectFactory,
         ProjectDependencyFactory projectDependencyFactory,
-        ImmutableAttributesFactory attributesFactory
+        AttributesFactory attributesFactory
     ) {
         this.instantiator = instantiator;
         this.dependencyNotationParser = dependencyNotationParser;
-        this.clientModuleNotationParser = clientModuleNotationParser;
         this.capabilityNotationParser = capabilityNotationParser;
         this.objectFactory = objectFactory;
         this.projectDependencyFactory = projectDependencyFactory;
@@ -92,28 +87,8 @@ public class DefaultDependencyFactory implements DependencyFactoryInternal {
     }
 
     @Override
-    @Deprecated
-    @SuppressWarnings("rawtypes")
-    public org.gradle.api.artifacts.ClientModule createModule(Object dependencyNotation, Closure configureClosure) {
-        org.gradle.api.artifacts.ClientModule clientModule = clientModuleNotationParser.parseNotation(dependencyNotation);
-        if (configureClosure != null) {
-            configureModule(clientModule, configureClosure);
-        }
-        return clientModule;
-    }
-
-    @Override
     public ProjectDependency createProjectDependencyFromMap(ProjectFinder projectFinder, Map<? extends String, ? extends Object> map) {
         return projectDependencyFactory.createFromMap(projectFinder, map);
-    }
-
-    @Deprecated
-    @SuppressWarnings("rawtypes")
-    private void configureModule(org.gradle.api.artifacts.ClientModule clientModule, Closure configureClosure) {
-        org.gradle.api.internal.artifacts.dsl.dependencies.ModuleFactoryDelegate moduleFactoryDelegate =
-            new org.gradle.api.internal.artifacts.dsl.dependencies.ModuleFactoryDelegate(clientModule, this);
-        moduleFactoryDelegate.prepareDelegation(configureClosure);
-        configureClosure.call();
     }
 
     // region DependencyFactory methods

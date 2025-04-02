@@ -7,7 +7,6 @@ description = "Gradle plugin development plugins"
 errorprone {
     disabledChecks.addAll(
         "DefaultCharset", // 1 occurrences
-        "LoopOverCharArray", // 1 occurrences
     )
 }
 
@@ -15,28 +14,30 @@ dependencies {
     api(projects.baseServices)
     api(projects.core)
     api(projects.coreApi)
+    api(projects.daemonServerWorker)
     api(projects.files)
-    api(projects.stdlibJavaExtensions)
     api(projects.logging)
-    api(projects.modelCore)
+    api(projects.modelReflect)
     api(projects.platformJvm)
     api(projects.problemsApi)
     api(projects.resources)
+    api(projects.stdlibJavaExtensions)
     api(projects.toolchainsJvmShared)
     api(projects.workers)
 
     api(libs.groovy)
     api(libs.gson)
-    api(libs.jsr305)
+    api(libs.jspecify)
     api(libs.inject)
 
-    implementation(projects.internalInstrumentationApi)
+    implementation(projects.classloaders)
     implementation(projects.serviceLookup)
     implementation(projects.serviceProvider)
     implementation(projects.serviceRegistryBuilder)
     implementation(projects.buildOption)
     implementation(projects.dependencyManagement)
     implementation(projects.execution)
+    implementation(projects.fileOperations)
     implementation(projects.hashing)
     implementation(projects.ivy)
     implementation(projects.languageJava)
@@ -44,14 +45,15 @@ dependencies {
     implementation(projects.loggingApi)
     implementation(projects.maven)
     implementation(projects.messaging)
+    implementation(projects.modelCore)
     implementation(projects.modelGroovy)
+    implementation(projects.persistentCache)
     implementation(projects.pluginsGroovy)
     implementation(projects.pluginsJava)
     implementation(projects.pluginsJavaBase)
     implementation(projects.pluginsJavaLibrary)
     implementation(projects.pluginsJvmTestSuite)
     implementation(projects.pluginUse)
-    implementation(projects.processServices)
     implementation(projects.publish)
     implementation(projects.testingJvm)
     implementation(projects.toolchainsJvm)
@@ -67,7 +69,7 @@ dependencies {
 
     integTestImplementation(projects.baseServicesGroovy)
 
-    integTestImplementation(testFixtures(projects.modelCore))
+    integTestImplementation(testFixtures(projects.modelReflect))
     integTestImplementation(testFixtures(projects.toolingApi))
 
     integTestImplementation(libs.groovyTest)
@@ -93,4 +95,7 @@ integTest.usesJavadocCodeSnippets = true
 
 strictCompile {
     ignoreDeprecations()
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

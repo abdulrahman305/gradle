@@ -16,17 +16,25 @@
 
 package org.gradle.declarative.dsl.schema
 
+import org.gradle.declarative.dsl.schema.ParameterSemantics.IdentityKey
+import org.gradle.declarative.dsl.schema.ParameterSemantics.StoreValueInProperty
+import org.gradle.declarative.dsl.schema.ParameterSemantics.Unknown
 import org.gradle.tooling.ToolingModelContract
 import java.io.Serializable
 
 
 @ToolingModelContract(subTypes = [
-    ParameterSemantics.StoreValueInProperty::class,
-    ParameterSemantics.Unknown::class
+    StoreValueInProperty::class,
+    IdentityKey::class,
+    Unknown::class
 ])
 sealed interface ParameterSemantics : Serializable {
     interface StoreValueInProperty : ParameterSemantics {
         val dataProperty: DataProperty
+    }
+
+    interface IdentityKey : ParameterSemantics {
+        val basedOnProperty : DataProperty?
     }
 
     interface Unknown : ParameterSemantics

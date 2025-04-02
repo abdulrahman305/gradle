@@ -16,18 +16,21 @@
 
 package org.gradle.api.problems.internal;
 
-import com.google.common.collect.Multimap;
 import org.gradle.api.problems.Problems;
+import org.gradle.internal.service.scopes.Scope;
+import org.gradle.internal.service.scopes.ServiceScope;
 
+@ServiceScope(Scope.BuildTree.class)
 public interface InternalProblems extends Problems {
 
     /**
      * Returns a reporter then provides additional problem service functionality specific for Gradle internals.
-     * <p>
      *
      * @return The reporter.
      */
     InternalProblemReporter getInternalReporter();
 
-    Multimap<Throwable, Problem> getProblemsForThrowables();
+    ProblemsInfrastructure getInfrastructure();
+
+    InternalProblemBuilder getProblemBuilder();
 }

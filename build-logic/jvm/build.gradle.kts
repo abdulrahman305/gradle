@@ -17,8 +17,5 @@ dependencies {
     implementation("org.ow2.asm:asm-commons")
     implementation("com.google.code.gson:gson")
     implementation("com.gradle:develocity-gradle-plugin")
-
-    implementation("com.thoughtworks.qdox:qdox") {
-        because("ParameterNamesIndex")
-    }
+    implementation(kotlin("gradle-plugin"))
 }

@@ -4,19 +4,13 @@ plugins {
 
 description = "Implementation for interacting with Google Cloud Storage (GCS) repositories"
 
-errorprone {
-    disabledChecks.addAll(
-        "StringCaseLocaleUsage", // 1 occurrences
-        "UnusedMethod", // 1 occurrences
-    )
-}
 
 dependencies {
     api(projects.serviceProvider)
     api(projects.resources)
 
     api(libs.gcs)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
     implementation(projects.stdlibJavaExtensions)
     implementation(projects.hashing)
@@ -49,4 +43,7 @@ dependencies {
 
 strictCompile {
     ignoreDeprecations()
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

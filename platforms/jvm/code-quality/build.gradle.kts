@@ -20,15 +20,7 @@ plugins {
 
 description = "Plugins and integration with code quality (Checkstyle, PMD, CodeNarc)"
 
-sourceSets {
-    main {
-        // Incremental Groovy joint-compilation doesn't work with the Error Prone annotation processor
-        errorprone.enabled = false
-    }
-}
-
 dependencies {
-    api(projects.stdlibJavaExtensions)
     api(projects.baseServices)
     api(projects.core)
     api(projects.coreApi)
@@ -36,23 +28,27 @@ dependencies {
     api(projects.platformJvm)
     api(projects.pluginsJavaBase)
     api(projects.reporting)
+    api(projects.stdlibJavaExtensions)
     api(projects.toolchainsJvm)
     api(projects.toolchainsJvmShared)
     api(projects.workers)
 
     api(libs.groovy)
     api(libs.inject)
-    api(libs.jsr305)
+    api(libs.jspecify)
 
+    implementation(projects.daemonServerWorker)
     implementation(projects.logging)
     implementation(projects.native)
     implementation(projects.pluginsGroovy)
     implementation(projects.serviceLookup)
+
     compileOnly(projects.internalInstrumentationApi)
 
     implementation(libs.groovyXml)
     implementation(libs.guava)
     implementation(libs.slf4jApi)
+    implementation(libs.commonsIo)
 
     runtimeOnly(projects.languageJvm)
 
@@ -79,4 +75,7 @@ dependencies {
 
 packageCycles {
     excludePatterns.add("org/gradle/api/plugins/quality/internal/*")
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

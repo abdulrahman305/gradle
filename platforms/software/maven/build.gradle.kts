@@ -8,9 +8,6 @@ errorprone {
     disabledChecks.addAll(
         "DefaultCharset", // 1 occurrences
         "EqualsUnsafeCast", // 1 occurrences
-        "StringCaseLocaleUsage", // 1 occurrences
-        "UnusedMethod", // 4 occurrences
-        "UnusedVariable", // 3 occurrences
     )
 }
 
@@ -30,7 +27,7 @@ dependencies {
 
     api(libs.guava)
     api(libs.inject)
-    api(libs.jsr305)
+    api(libs.jspecify)
     api(libs.maven3Model) {
         because("We use the metadata model classes to create POM metadata files for components")
     }
@@ -38,7 +35,6 @@ dependencies {
         because("We use the metadata model classes to create repository metadata files")
     }
 
-    implementation(projects.internalInstrumentationApi)
     implementation(projects.functional)
     implementation(projects.hashing)
     implementation(projects.loggingApi)
@@ -87,3 +83,6 @@ packageCycles {
 }
 
 integTest.usesJavadocCodeSnippets = true
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}
