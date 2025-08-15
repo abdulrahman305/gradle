@@ -80,6 +80,7 @@ import org.gradle.groovy.scripts.EmptyScript
 import org.gradle.groovy.scripts.ScriptSource
 import org.gradle.initialization.ClassLoaderScopeRegistryListener
 import org.gradle.internal.Actions
+import org.gradle.internal.Describables
 import org.gradle.internal.instantiation.InstantiatorFactory
 import org.gradle.internal.logging.LoggingManagerInternal
 import org.gradle.internal.management.DependencyResolutionManagementInternal
@@ -103,12 +104,12 @@ import org.gradle.test.fixtures.file.TestNameTestDirectoryProvider
 import org.gradle.util.Path
 import org.gradle.util.TestClosure
 import org.gradle.util.TestUtil
+import org.jspecify.annotations.Nullable
 import org.junit.Rule
 import spock.lang.Ignore
 import spock.lang.Specification
 
 import java.lang.reflect.Type
-import java.text.FieldPosition
 import java.util.function.Consumer
 
 class DefaultProjectTest extends Specification {
@@ -269,6 +270,7 @@ class DefaultProjectTest extends Specification {
 
         projectState = Mock(ProjectState)
         projectState.name >> 'root'
+        projectState.displayName >> Describables.of("displayname")
         project = defaultProject('root', projectState, null, rootDir, rootProjectClassLoaderScope)
         def child1ClassLoaderScope = rootProjectClassLoaderScope.createChild("project-child1", null)
         child1State = Mock(ProjectState)
@@ -287,11 +289,41 @@ class DefaultProjectTest extends Specification {
         }
     }
 
-    private DefaultProject defaultProject(String name, ProjectState owner, ProjectInternal parent, File rootDir, ClassLoaderScope scope) {
-        _ * owner.identityPath >> (parent == null ? Path.ROOT : parent.identityPath.child(name))
-        _ * owner.projectPath >> (parent == null ? Path.ROOT : parent.projectPath.child(name))
+    private DefaultProject defaultProject(
+        String name,
+        ProjectState owner,
+        @Nullable ProjectInternal parent,
+        File rootDir,
+        ClassLoaderScope scope
+    ) {
+        def identity
+        if (parent == null) {
+            identity = ProjectIdentity.forRootProject(Path.ROOT, name)
+        } else {
+            identity = ProjectIdentity.forSubproject(
+                parent.projectIdentity.buildPath,
+                parent.projectIdentity.projectPath.child(name)
+            )
+        }
+
+        _ * owner.identity >> identity
+        _ * owner.identityPath >> identity.buildTreePath
+        _ * owner.projectPath >> identity.projectPath
         _ * owner.depth >> owner.projectPath.segmentCount()
-        def project = TestUtil.instantiatorFactory().decorateLenient().newInstance(DefaultProject, name, parent, rootDir, new File(rootDir, 'build.gradle'), script, build, owner, projectServiceRegistryFactoryMock, scope, baseClassLoaderScope)
+
+        def project = TestUtil.instantiatorFactory().decorateLenient().newInstance(
+            DefaultProject,
+            name,
+            parent,
+            rootDir,
+            new File(rootDir, 'build.gradle'),
+            script,
+            build,
+            owner,
+            projectServiceRegistryFactoryMock,
+            scope,
+            baseClassLoaderScope
+        )
         _ * owner.applyToMutableState(_) >> { Consumer action -> action.accept(project) }
         return project
     }
@@ -328,7 +360,7 @@ class DefaultProjectTest extends Specification {
         assert project.antBuilderFactory.is(antBuilderFactoryMock)
         assert project.gradle.is(build)
         assert project.ant != null
-        assert project.convention != null
+        assert project.extensions != null
         assert project.defaultTasks == []
         assert project.configurations.is(configurationContainerMock)
         assert project.repositories.is(repositoryHandlerMock)
@@ -551,7 +583,7 @@ class DefaultProjectTest extends Specification {
         project.project(Project.PATH_SEPARATOR + "unknownchild")
         then:
         def e = thrown(UnknownProjectException)
-        e.message == "Project with path ':unknownchild' could not be found in root project 'root'."
+        e.message == "Project with path ':unknownchild' could not be found in displayname."
     }
 
     def getProjectWithUnknownRelativePath() {
@@ -559,7 +591,7 @@ class DefaultProjectTest extends Specification {
         project.project("unknownchild")
         then:
         def e = thrown(UnknownProjectException)
-        e.message == "Project with path 'unknownchild' could not be found in root project 'root'."
+        e.message == "Project with path 'unknownchild' could not be found in displayname."
     }
 
     def getProjectWithEmptyPath() {
@@ -633,11 +665,6 @@ class DefaultProjectTest extends Specification {
         closureCalled
 
         when:
-        project.convention.plugins.test = new TestConvention()
-        then:
-        project.scriptMethod(testConfigureClosure) == TestConvention.METHOD_RESULT
-
-        when:
         project.script = createScriptForMethodMissingTest('projectScript')
         then:
         project.scriptMethod(testConfigureClosure) == 'projectScript'
@@ -663,51 +690,6 @@ def scriptMethod(Closure closure) {
         then:
         project."$propertyName" == expectedValue
         child1."$propertyName" == expectedValue
-    }
-
-    def propertyMissingWithExistingConventionProperty() {
-        given:
-        String propertyName = 'conv'
-        String expectedValue = 'somevalue'
-
-        when:
-        project.convention.plugins.test = new TestConvention()
-        project.convention.conv = expectedValue
-
-        then:
-        project."$propertyName" == expectedValue
-        project.convention."$propertyName" == expectedValue
-        child1."$propertyName" == expectedValue
-    }
-
-    def setPropertyAndPropertyMissingWithConventionProperty() {
-        given:
-        String expectedValue = 'somevalue'
-
-        when:
-        project.convention.plugins.test = new TestConvention()
-        project.conv = expectedValue
-
-        then:
-        project.conv == expectedValue
-        project.convention.plugins.test.conv == expectedValue
-        child1.conv == expectedValue
-    }
-
-    def setPropertyAndPropertyMissingWithProjectAndConventionProperty() {
-        given:
-        String propertyName = 'archivesBaseName'
-        String expectedValue = 'somename'
-
-        when:
-        project.ext.archivesBaseName = expectedValue
-        project.convention.plugins.test = new TestConvention()
-        project.convention.archivesBaseName = 'someothername'
-        project."$propertyName" = expectedValue
-
-        then:
-        project."$propertyName" == expectedValue
-        project.convention."$propertyName" == 'someothername'
     }
 
     def propertyMissingWithNullProperty() {
@@ -751,13 +733,6 @@ def scriptMethod(Closure closure) {
         project.hasProperty('name')
         !project.hasProperty(propertyName)
         !child1.hasProperty(propertyName)
-
-        when:
-        project.convention.plugins.test = new FieldPosition(0)
-        project."$propertyName" = 5
-        then:
-        project.hasProperty(propertyName)
-        child1.hasProperty(propertyName)
     }
 
     def properties() {
@@ -780,15 +755,6 @@ def scriptMethod(Closure closure) {
         then:
         project.inheritedScope.hasProperty('somename')
         project.inheritedScope.getProperty('somename') == 'somevalue'
-    }
-
-    def conventionPropertiesAreInheritable() {
-        when:
-        project.convention.plugins.test = new TestConvention()
-        project.convention.plugins.test.conv = 'somevalue'
-        then:
-        project.inheritedScope.hasProperty('conv')
-        project.inheritedScope.getProperty('conv') == 'somevalue'
     }
 
     def inheritedPropertiesAreInheritable() {
@@ -919,7 +885,7 @@ def scriptMethod(Closure closure) {
         project.name = "someNewName"
         then:
         def e = thrown(GroovyRuntimeException)
-        e.message == "Cannot set the value of read-only property 'name' for root project 'root' of type ${Project.name}."
+        e.message == "Cannot set the value of read-only property 'name' for displayname of type ${Project.name}."
     }
 
     def convertsAbsolutePathToAbsolutePath() {

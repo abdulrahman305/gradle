@@ -74,13 +74,11 @@ enum class Os(
             when {
                 this == LINUX ->
                     listOf(
-                        DefaultJvm(JvmVersion.JAVA_7, JvmVendor.ORACLE),
                         DefaultJvm(JvmVersion.JAVA_8, JvmVendor.ORACLE),
                         DefaultJvm(JvmVersion.JAVA_11, JvmVendor.OPENJDK),
                         DefaultJvm(JvmVersion.JAVA_17, JvmVendor.OPENJDK),
                         DefaultJvm(JvmVersion.JAVA_21, JvmVendor.OPENJDK),
-                        DefaultJvm(JvmVersion.JAVA_23, JvmVendor.OPENJDK),
-                        DefaultJvm(JvmVersion.JAVA_24, JvmVendor.OPENJDK),
+                        DefaultJvm(JvmVersion.JAVA_25, JvmVendor.OPENJDK),
                     )
 
                 arch == Arch.AARCH64 && this == MACOS ->
@@ -89,8 +87,7 @@ enum class Os(
                         DefaultJvm(JvmVersion.JAVA_11, JvmVendor.OPENJDK),
                         DefaultJvm(JvmVersion.JAVA_17, JvmVendor.OPENJDK),
                         DefaultJvm(JvmVersion.JAVA_21, JvmVendor.OPENJDK),
-                        DefaultJvm(JvmVersion.JAVA_23, JvmVendor.OPENJDK),
-                        DefaultJvm(JvmVersion.JAVA_24, JvmVendor.OPENJDK),
+                        DefaultJvm(JvmVersion.JAVA_25, JvmVendor.OPENJDK),
                     )
 
                 else ->
@@ -99,8 +96,7 @@ enum class Os(
                         DefaultJvm(JvmVersion.JAVA_11, JvmVendor.OPENJDK),
                         DefaultJvm(JvmVersion.JAVA_17, JvmVendor.OPENJDK),
                         DefaultJvm(JvmVersion.JAVA_21, JvmVendor.OPENJDK),
-                        DefaultJvm(JvmVersion.JAVA_23, JvmVendor.OPENJDK),
-                        DefaultJvm(JvmVersion.JAVA_24, JvmVendor.OPENJDK),
+                        DefaultJvm(JvmVersion.JAVA_25, JvmVendor.OPENJDK),
                     )
             }.joinToString(",") { javaHome(it, this, arch) }
         return """"-Porg.gradle.java.installations.paths=$paths""""

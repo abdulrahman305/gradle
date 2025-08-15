@@ -28,7 +28,6 @@ import org.gradle.api.provider.Provider;
 import org.gradle.api.specs.Spec;
 import org.gradle.api.tasks.TaskDependency;
 import org.gradle.internal.HasInternalProtocol;
-import org.gradle.internal.deprecation.DeprecationLogger;
 import org.jspecify.annotations.Nullable;
 
 import java.io.File;
@@ -106,45 +105,26 @@ public interface Configuration extends FileCollection, HasConfigurableAttributes
     State getState();
 
     /**
-     * An implementation of the namer interface for configurations that returns {@link #getName()}.
+     * This is a legacy property and the value does not affect dependency resolution
+     * in any way. There is no need to read this property and this method will be deprecated
+     * in an upcoming Gradle version.
+     * <p>
+     * The value of this property does not dictate in any way the "visibility" of
+     * a configuration, or if it is accessible between projects.
      *
-     * @deprecated Use {@link Named.Namer#INSTANCE} instead (since {@link Configuration} now extends {@link Named}).
+     * @deprecated This property is deprecated and will be removed in Gradle 10.
      */
     @Deprecated
-    class Namer implements org.gradle.api.Namer<Configuration> {
-
-        public Namer() {
-            DeprecationLogger.deprecateType(Namer.class)
-                .replaceWith("Named.Namer.INSTANCE")
-                .withContext("Configuration implements Named, so you can use Named.Namer.INSTANCE instead of Configuration.Namer")
-                .willBeRemovedInGradle9()
-                .withUpgradeGuideSection(8, "deprecated_namers")
-                .nagUser();
-        }
-
-        @Override
-        public String determineName(Configuration configuration) {
-            return Named.Namer.INSTANCE.determineName(configuration);
-        }
-    }
-
-    /**
-     * Returns true if this is a visible configuration. A visible configuration is usable outside the project it belongs
-     * to. The default value is true.
-     *
-     * @return true if this is a visible configuration.
-     */
     boolean isVisible();
 
     /**
-     * Sets the visibility of this configuration. When visible is set to true, this configuration is visible outside
-     * the project it belongs to. The default value is true.
+     * Sets the value returned by {@link #isVisible()}. There is no need to set this property
+     * and this method will be deprecated in an upcoming Gradle version.
      *
-     * @implSpec Usage: This method should only be called on consumable configurations, but will not warn if used otherwise.
-     *
-     * @param visible true if this is a visible configuration
-     * @return this configuration
+     * @param visible the value to set.
+     * @deprecated This property is deprecated and will be removed in Gradle 10.
      */
+    @Deprecated
     Configuration setVisible(boolean visible);
 
     /**
@@ -457,15 +437,6 @@ public interface Configuration extends FileCollection, HasConfigurableAttributes
      * @return this
      */
     Configuration withDependencies(Action<? super DependencySet> action);
-
-    /**
-     * Returns all the configurations belonging to the same configuration container as this
-     * configuration (including this configuration).
-     *
-     * @return All the configurations belonging to the configuration container that this set belongs to itself.
-     */
-    @Deprecated
-    Set<Configuration> getAll();
 
     /**
      * Returns a {@link ResolvableDependencies} instance, exposing the results of dependency resolution.

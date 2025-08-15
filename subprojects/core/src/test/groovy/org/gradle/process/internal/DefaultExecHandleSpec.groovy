@@ -20,11 +20,16 @@ package org.gradle.process.internal
 import org.gradle.api.internal.file.TestFiles
 import org.gradle.initialization.BuildCancellationToken
 import org.gradle.internal.jvm.Jvm
+import org.gradle.internal.logging.CollectingTestOutputEventListener
+import org.gradle.internal.logging.ConfigureLogging
+import org.gradle.internal.os.OperatingSystem
 import org.gradle.process.ExecResult
+import org.gradle.process.ProcessExecutionException
 import org.gradle.test.fixtures.concurrent.ConcurrentSpec
 import org.gradle.test.fixtures.file.TestNameTestDirectoryProvider
-import org.gradle.util.internal.GUtil
 import org.gradle.util.UsesNativeServices
+import org.gradle.util.internal.GUtil
+import org.gradle.util.internal.TextUtil
 import org.junit.Rule
 import spock.lang.Ignore
 import spock.lang.Timeout
@@ -37,6 +42,8 @@ import java.util.concurrent.Executor
 class DefaultExecHandleSpec extends ConcurrentSpec {
     @Rule final TestNameTestDirectoryProvider tmpDir = new TestNameTestDirectoryProvider(getClass())
     private BuildCancellationToken buildCancellationToken = Mock(BuildCancellationToken)
+    private final CollectingTestOutputEventListener outputEventListener = new CollectingTestOutputEventListener()
+    @Rule final ConfigureLogging logging = new ConfigureLogging(outputEventListener)
 
     void "forks process"() {
         given:
@@ -99,7 +106,7 @@ class DefaultExecHandleSpec extends ConcurrentSpec {
         result.assertNormalExitValue()
 
         then:
-        def e = thrown(ExecException)
+        def e = thrown(ProcessExecutionException)
         e.message.contains "finished with non-zero exit value 72"
     }
 
@@ -110,7 +117,7 @@ class DefaultExecHandleSpec extends ConcurrentSpec {
         execHandle.start()
 
         then:
-        def e = thrown(ExecException)
+        def e = thrown(ProcessExecutionException)
         e.message == "A problem occurred starting process 'awesome'"
     }
 
@@ -134,6 +141,27 @@ class DefaultExecHandleSpec extends ConcurrentSpec {
             assert it[0].class == ExecHandleShutdownHookAction
             true
         }
+        and:
+        execHandle.state == ExecHandleState.ABORTED
+        and:
+        execHandle.waitForFinish().exitValue != 0
+    }
+
+    void "abort destroys all child processes"() {
+        def execHandle = handle().args(args(AppWithChildWithGrandChild.class)).build()
+        // On Windows additional `conhost.exe` processes are spawned as children of java processes
+        def expectedDescendantProcesses = OperatingSystem.current().isWindows() ? 5 : 2
+
+        when:
+        execHandle.start()
+        // wait for child and grand child to start
+        while(childProcessHandles(execHandle).size() != expectedDescendantProcesses) {
+            Thread.sleep(10)
+        }
+        execHandle.abort()
+
+        then:
+        childProcessHandles(execHandle).isEmpty()
         and:
         execHandle.state == ExecHandleState.ABORTED
         and:
@@ -234,7 +262,7 @@ class DefaultExecHandleSpec extends ConcurrentSpec {
         0 * listener._
 
         and:
-        def e = thrown(ExecException)
+        def e = thrown(ProcessExecutionException)
         e.cause == failure
     }
 
@@ -254,7 +282,7 @@ class DefaultExecHandleSpec extends ConcurrentSpec {
         0 * listener._
 
         and:
-        def e = thrown(ExecException)
+        def e = thrown(ProcessExecutionException)
         e.cause == failure
     }
 
@@ -274,7 +302,7 @@ class DefaultExecHandleSpec extends ConcurrentSpec {
         0 * listener._
 
         and:
-        def e = thrown(ExecException)
+        def e = thrown(ProcessExecutionException)
         e.cause == failure
     }
 
@@ -453,6 +481,7 @@ class DefaultExecHandleSpec extends ConcurrentSpec {
             .setTimeout(20000) //sanity timeout
             .setWorkingDir(tmpDir.getTestDirectory())
             .environment('CLASSPATH', mergeClasspath())
+            .environment('JAVA_EXE_PATH', TextUtil.normaliseFileSeparators(Jvm.current().getJavaExecutable().getAbsolutePath()))
     }
 
     private String mergeClasspath() {
@@ -465,6 +494,11 @@ class DefaultExecHandleSpec extends ConcurrentSpec {
 
     private List args(Class mainClass, String... args) {
         GUtil.flattenElements(mainClass.getName(), args)
+    }
+
+    private List<String> childProcessHandles(ExecHandle execHandle) {
+        Process process = execHandle.execHandleRunner.process
+        process.descendants().map { it.toString() }.toList()
     }
 
     public static class BrokenApp {
@@ -502,6 +536,20 @@ class DefaultExecHandleSpec extends ConcurrentSpec {
             ObjectInputStream instr = new ObjectInputStream(System.in)
             Callable<?> main = (Callable<?>) instr.readObject()
             System.out.println(main.call())
+        }
+    }
+
+    static class AppWithChild {
+        static void main(String[] args) throws InterruptedException {
+            def java = System.getenv('JAVA_EXE_PATH')
+            "$java ${SlowApp.name}".execute().waitFor()
+        }
+    }
+
+    static class AppWithChildWithGrandChild {
+        static void main(String[] args) throws InterruptedException {
+            def java = System.getenv('JAVA_EXE_PATH')
+            "$java ${AppWithChild.name}".execute().waitFor()
         }
     }
 }

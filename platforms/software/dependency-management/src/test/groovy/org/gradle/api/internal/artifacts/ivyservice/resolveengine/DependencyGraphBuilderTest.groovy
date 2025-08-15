@@ -27,6 +27,7 @@ import org.gradle.api.internal.artifacts.DefaultImmutableModuleIdentifierFactory
 import org.gradle.api.internal.artifacts.DefaultModuleIdentifier
 import org.gradle.api.internal.artifacts.DependencyManagementTestUtil
 import org.gradle.api.internal.artifacts.ImmutableModuleIdentifierFactory
+import org.gradle.api.internal.artifacts.NamedVariantIdentifier
 import org.gradle.api.internal.artifacts.configurations.ConflictResolution
 import org.gradle.api.internal.artifacts.dependencies.DefaultMutableVersionConstraint
 import org.gradle.api.internal.artifacts.dsl.ImmutableModuleReplacements
@@ -49,6 +50,7 @@ import org.gradle.api.internal.artifacts.publish.DefaultPublishArtifact
 import org.gradle.api.internal.attributes.AttributeDesugaring
 import org.gradle.api.internal.attributes.ImmutableAttributes
 import org.gradle.api.internal.attributes.immutable.ImmutableAttributesSchema
+import org.gradle.api.internal.initialization.StandaloneDomainObjectContext
 import org.gradle.api.specs.Spec
 import org.gradle.internal.Describables
 import org.gradle.internal.component.external.descriptor.DefaultExclude
@@ -133,8 +135,7 @@ class DependencyGraphBuilderTest extends Specification {
             Mock(DependencyMetadataFactory),
             new DefaultExcludeRuleConverter(new DefaultImmutableModuleIdentifierFactory())
         ),
-        TestUtil.calculatedValueContainerFactory(),
-        TestUtil.inMemoryCacheFactory()
+        TestUtil.calculatedValueContainerFactory()
     )
 
     def variantSelector = new GraphVariantSelector(AttributeTestUtil.services(), DependencyManagementTestUtil.newFailureHandler())
@@ -795,9 +796,9 @@ class DependencyGraphBuilderTest extends Specification {
         then:
         DefaultMultiCauseException e = thrown()
         e.cause instanceof ModuleVersionResolveException
-        e.cause.message.contains "project :root > group:a:1.0"
-        e.cause.message.contains "project :root > group:b:1.0"
-        !e.cause.message.contains("project :root > group:b:1.0 > group:a:1.0")
+        e.cause.message.contains "unknown > group:a:1.0"
+        e.cause.message.contains "unknown > group:b:1.0"
+        !e.cause.message.contains("unknown > group:b:1.0 > group:a:1.0")
     }
 
     def "reports failure to resolve version selector to module version"() {
@@ -822,8 +823,8 @@ class DependencyGraphBuilderTest extends Specification {
         then:
         DefaultMultiCauseException e = thrown()
         e.cause instanceof ModuleVersionResolveException
-        e.cause.message.contains "project :root > group:a:1.0"
-        e.cause.message.contains "project :root > group:b:1.0"
+        e.cause.message.contains "unknown > group:a:1.0"
+        e.cause.message.contains "unknown > group:b:1.0"
     }
 
     def "merges all failures for all dependencies with a given module version selector"() {
@@ -848,8 +849,8 @@ class DependencyGraphBuilderTest extends Specification {
         then:
         DefaultMultiCauseException e = thrown()
         e.cause instanceof ModuleVersionResolveException
-        e.cause.message.contains "project :root > group:a:1.0"
-        e.cause.message.contains "project :root > group:b:1.0"
+        e.cause.message.contains "unknown > group:a:1.0"
+        e.cause.message.contains "unknown > group:b:1.0"
     }
 
     def "reports shortest incoming paths for a missing module version"() {
@@ -875,9 +876,9 @@ class DependencyGraphBuilderTest extends Specification {
         then:
         DefaultMultiCauseException e = thrown()
         e.cause instanceof ModuleVersionNotFoundException
-        e.cause.message.contains "project :root > group:a:1.0"
-        e.cause.message.contains "project :root > group:b:1.0"
-        !e.cause.message.contains("project :root > group:b:1.0 > group:a:1.0")
+        e.cause.message.contains "unknown > group:a:1.0"
+        e.cause.message.contains "unknown > group:b:1.0"
+        !e.cause.message.contains("unknown > group:b:1.0 > group:a:1.0")
     }
 
     def "merges all dependencies with a given module version selector when reporting missing version"() {
@@ -902,8 +903,8 @@ class DependencyGraphBuilderTest extends Specification {
         then:
         DefaultMultiCauseException e = thrown()
         e.cause instanceof ModuleVersionNotFoundException
-        e.cause.message.contains "project :root > group:a:1.0"
-        e.cause.message.contains "project :root > group:b:1.0"
+        e.cause.message.contains "unknown > group:a:1.0"
+        e.cause.message.contains "unknown > group:b:1.0"
     }
 
     def "can handle a cycle in the incoming paths of a broken module"() {
@@ -928,7 +929,7 @@ class DependencyGraphBuilderTest extends Specification {
         then:
         DefaultMultiCauseException e = thrown()
         e.cause instanceof ModuleVersionNotFoundException
-        e.cause.message.contains "project :root > group:a:1.0 > group:b:1.0"
+        e.cause.message.contains "unknown > group:a:1.0 > group:b:1.0"
     }
 
     def "does not report a path through an evicted version"() {
@@ -964,7 +965,7 @@ class DependencyGraphBuilderTest extends Specification {
         DefaultMultiCauseException ex = thrown()
         ex.cause instanceof ModuleVersionNotFoundException
         !ex.cause.message.contains("group:a:1.1")
-        ex.cause.message.contains "project :root > group:a:1.2"
+        ex.cause.message.contains "unknown > group:a:1.2"
 
         and:
         result.components == ids(root, selected, d, e)
@@ -993,7 +994,7 @@ class DependencyGraphBuilderTest extends Specification {
         and:
         DefaultMultiCauseException e = thrown()
         e.cause instanceof ModuleVersionNotFoundException
-        e.cause.message.contains("project :root")
+        e.cause.message.contains("unknown")
     }
 
     def "does not fail when conflict resolution evicts a version that does not exist"() {
@@ -1117,12 +1118,13 @@ class DependencyGraphBuilderTest extends Specification {
             )
         )
 
+        def id = new NamedVariantIdentifier(componentId, name)
         def metadata = new DefaultLocalVariantGraphResolveMetadata(
-            name, true, attributes, ImmutableCapabilities.EMPTY, false
+            id, name, true, attributes, ImmutableCapabilities.EMPTY, false
         )
 
         return resolveStateFactory.realizedVariantStateFor(
-            componentId, metadata, dependencyMetadata, artifactSets
+            metadata, dependencyMetadata, artifactSets
         )
     }
 
@@ -1144,7 +1146,7 @@ class DependencyGraphBuilderTest extends Specification {
 
     def doesNotResolve(Map<String, ?> args = [:], TestComponent from, TestComponent to) {
         def selector = dependsOn(args, from, to)
-        0 * idResolver.resolve(selector, _, _, _, _)
+        0 * idResolver.resolve(selector, _, _, _, _, _)
         0 * metaDataResolver.resolve(to.component.id, _, _)
     }
 
@@ -1167,7 +1169,7 @@ class DependencyGraphBuilderTest extends Specification {
 
     def brokenSelector(Map<String, ?> args = [:], TestComponent from, String to) {
         def selector = dependsOn(args, from, newId("group", to, "1.0"))
-        1 * idResolver.resolve(selector, _, _, _, _) >> { ModuleComponentSelector sel, ComponentOverrideMetadata om, VersionSelector acceptor, VersionSelector rejector, BuildableComponentIdResolveResult result ->
+        1 * idResolver.resolve(selector, _, _, _, _, _) >> { ModuleComponentSelector sel, ComponentOverrideMetadata om, VersionSelector acceptor, VersionSelector rejector, BuildableComponentIdResolveResult result, ImmutableAttributes consumerAttributes ->
             org.gradle.internal.Factory<String> broken = { "broken" }
             result.failed(new ModuleVersionResolveException(newSelector(DefaultModuleIdentifier.newId("a", "b"), new DefaultMutableVersionConstraint("c")), broken))
         }
@@ -1204,7 +1206,7 @@ class DependencyGraphBuilderTest extends Specification {
     }
 
     def selectorResolvesTo(ComponentSelector selector, ComponentIdentifier id, ModuleVersionIdentifier mvId) {
-        1 * idResolver.resolve(selector, _, _, _, _) >> { ComponentSelector sel, ComponentOverrideMetadata om, VersionSelector acceptor, VersionSelector rejector, BuildableComponentIdResolveResult result ->
+        1 * idResolver.resolve(selector, _, _, _, _, _) >> { ComponentSelector sel, ComponentOverrideMetadata om, VersionSelector acceptor, VersionSelector rejector, BuildableComponentIdResolveResult result, ImmutableAttributes consumerAttributes ->
             result.resolved(id, mvId)
         }
     }
@@ -1267,7 +1269,7 @@ class DependencyGraphBuilderTest extends Specification {
             }
 
             throw new DefaultMultiCauseException("message", failures.values().collect {
-                it.failure.withIncomingPaths(DependencyGraphPathResolver.calculatePaths(it.requiredBy, root))
+                it.failure.withIncomingPaths(DependencyGraphPathResolver.calculatePaths(it.requiredBy, root, StandaloneDomainObjectContext.ANONYMOUS))
             })
         }
 

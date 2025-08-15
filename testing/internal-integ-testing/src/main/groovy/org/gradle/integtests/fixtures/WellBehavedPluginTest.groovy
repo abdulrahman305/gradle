@@ -43,12 +43,10 @@ abstract class WellBehavedPluginTest extends AbstractIntegrationSpec {
     }
 
     @ToBeFixedForConfigurationCache(bottomSpecs = [
-        "BuildDashboardPluginIntegrationTest",
         "ScalaPluginGoodBehaviourTest",
         "AntlrPluginIntegrationTest",
         "PlayApplicationPluginGoodBehaviourIntegrationTest",
-        "PmdPluginIntegrationTest",
-        "IdeaPluginGoodBehaviourTest"
+        "PmdPluginIntegrationTest"
     ])
     void "can apply plugin unqualified"() {
         given:
@@ -72,12 +70,10 @@ abstract class WellBehavedPluginTest extends AbstractIntegrationSpec {
     }
 
     @ToBeFixedForConfigurationCache(bottomSpecs = [
-        "BuildDashboardPluginIntegrationTest",
         "ScalaPluginGoodBehaviourTest",
         "AntlrPluginIntegrationTest",
         "PlayApplicationPluginGoodBehaviourIntegrationTest",
         "PmdPluginIntegrationTest",
-        "IdeaPluginGoodBehaviourTest"
     ])
     def "plugin can build with empty project"() {
         given:
@@ -105,8 +101,6 @@ abstract class WellBehavedPluginTest extends AbstractIntegrationSpec {
 
             'visual-studio',
             'xcode',
-
-            'play-application',
         ])
 
         applyPlugin()
@@ -192,7 +186,7 @@ abstract class WellBehavedPluginTest extends AbstractIntegrationSpec {
 
     void expectTaskProjectDeprecation() {
         executer.expectDocumentedDeprecationWarning("Invocation of Task.project at execution time has been deprecated. "+
-            "This will fail with an error in Gradle 10.0. " +
+            "This will fail with an error in Gradle 10. " +
             "This API is incompatible with the configuration cache, which will become the only mode supported by Gradle in a future release. " +
             "Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_7.html#task_project")
     }

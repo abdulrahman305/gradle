@@ -26,6 +26,7 @@ import org.gradle.api.internal.artifacts.DefaultBuildIdentifier
 import org.gradle.api.internal.file.FileCollectionFactory
 import org.gradle.api.internal.file.TestFiles
 import org.gradle.api.internal.plugins.PluginManagerInternal
+import org.gradle.api.internal.project.ProjectIdentity
 import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.api.internal.project.ProjectState
 import org.gradle.api.internal.project.taskfactory.TestTaskIdentities
@@ -270,13 +271,17 @@ class DefaultIncludedBuildTaskGraphParallelTest extends AbstractIncludedBuildTas
 
     TaskInternal task(BuildServices services, Node dependsOn) {
         def projectState = Stub(ProjectState)
-        def project = Stub(ProjectInternal)
+        def buildId = Path.path(services.identifier.buildPath)
+        def projectId = ProjectIdentity.forRootProject(buildId, "root")
+        def project = Stub(ProjectInternal) {
+            getProjectIdentity() >> projectId
+        }
         def task = Stub(TaskInternal)
         def dependencies = Stub(TaskDependency)
         _ * dependencies.getDependencies(_) >> [dependsOn].toSet()
         _ * task.taskDependencies >> dependencies
         _ * task.project >> project
-        _ * task.identityPath >> Path.path(services.identifier.buildPath).child("task")
+        _ * task.identityPath >> projectId.buildTreePath.child("task")
         _ * task.taskIdentity >> TestTaskIdentities.create("task", DefaultTask, project)
         _ * task.destroyables >> Stub(TaskDestroyablesInternal)
         _ * task.localState >> Stub(TaskLocalStateInternal)

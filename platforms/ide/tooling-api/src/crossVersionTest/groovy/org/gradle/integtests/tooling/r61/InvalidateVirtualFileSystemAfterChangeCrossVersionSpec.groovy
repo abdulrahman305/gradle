@@ -17,7 +17,7 @@
 package org.gradle.integtests.tooling.r61
 
 import org.gradle.integtests.fixtures.daemon.DaemonFixture
-import org.gradle.integtests.fixtures.executer.GradleExecuter
+import org.gradle.integtests.fixtures.executer.NoDaemonGradleExecuter
 import org.gradle.integtests.tooling.fixture.TargetGradleVersion
 import org.gradle.integtests.tooling.fixture.ToolingApiSpecification
 import org.gradle.test.fixtures.server.http.BlockingHttpServer
@@ -29,7 +29,6 @@ import java.nio.file.Paths
 
 class InvalidateVirtualFileSystemAfterChangeCrossVersionSpec extends ToolingApiSpecification {
     @Rule BlockingHttpServer server = new BlockingHttpServer()
-    GradleExecuter executer
 
     List<String> changedPaths = [file("src/main/java").absolutePath]
 
@@ -39,11 +38,12 @@ class InvalidateVirtualFileSystemAfterChangeCrossVersionSpec extends ToolingApiS
         buildFile << """
             apply plugin: 'java'
         """
-
-        executer = toolingApi.createExecuter()
     }
 
-    @TargetGradleVersion(">=3.0")
+    def cleanup() {
+        toolingApi.close()
+    }
+
     def "no daemon is started for request"() {
         when:
         withConnection { connection ->
@@ -91,8 +91,13 @@ class InvalidateVirtualFileSystemAfterChangeCrossVersionSpec extends ToolingApiS
                 }
             }
         """
+
         def block = server.expectAndBlock("block")
-        def build = executer.withTasks("block", "--info").start()
+        def build = new NoDaemonGradleExecuter(toolingApi.getDistribution(), temporaryFolder, buildContext)
+            .withDaemonBaseDir(toolingApi.daemonBaseDir)
+            .requireDaemon()
+            .withTasks("block", "--info")
+            .start()
         block.waitForAllPendingCalls()
         toolingApi.daemons.daemon.assertBusy()
 
@@ -111,7 +116,7 @@ class InvalidateVirtualFileSystemAfterChangeCrossVersionSpec extends ToolingApiS
         build?.waitForFinish()
     }
 
-    @TargetGradleVersion(">=3.0 <6.1")
+    @TargetGradleVersion(">=4.0 <6.1")
     def "invalidating paths has no effect on older daemons"() {
         when:
         createIdleDaemon()
@@ -139,10 +144,6 @@ class InvalidateVirtualFileSystemAfterChangeCrossVersionSpec extends ToolingApiS
             connection.model(GradleBuild).get()
         }
         toolingApi.daemons.daemon.assertIdle()
-    }
-
-    def cleanup() {
-        toolingApi.close()
     }
 
     boolean pathsInvalidated() {

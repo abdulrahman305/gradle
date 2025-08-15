@@ -36,6 +36,7 @@ import static org.gradle.jvm.toolchain.JavaToolchainDownloadUtil.applyToolchainR
 import static org.gradle.jvm.toolchain.JavaToolchainDownloadUtil.constantUrlResolverCode
 import static org.gradle.jvm.toolchain.JavaToolchainDownloadUtil.noUrlResolverCode
 
+@Requires(value = IntegTestPreconditions.NotEmbeddedExecutor, reason = "explicitly requests a daemon")
 class UpdateDaemonJvmIntegrationTest extends AbstractIntegrationSpec implements DaemonJvmPropertiesFixture, JavaToolchainFixture {
 
     def setup() {
@@ -67,7 +68,10 @@ class UpdateDaemonJvmIntegrationTest extends AbstractIntegrationSpec implements 
         then:
         // TODO The description is different with CC on
 //        failureDescriptionContains("Execution failed for task ':updateDaemonJvm'.")
-        failureHasCause("Toolchain download repositories have not been configured.")
+        failureHasCause("Invalid task configuration")
+        failureCauseContains("Toolchain download repositories have not been configured.")
+        failure.assertHasResolution("Learn more about toolchain repositories")
+
     }
 
     def "When execute updateDaemonJvm without options Then daemon jvm properties are populated with default values"() {
@@ -80,7 +84,6 @@ class UpdateDaemonJvmIntegrationTest extends AbstractIntegrationSpec implements 
         then:
         assertJvmCriteria(Jvm.current().javaVersion)
         assertToolchainDownloadUrlsProperties(fromConstantUrl())
-        outputContains("Daemon JVM criteria is an incubating feature.")
     }
 
     def "can configure updateDaemonJvm to not generate download URLs"() {
@@ -322,16 +325,16 @@ tasks.named("updateDaemonJvm") {
         then:
         // TODO The description is different with CC on
 //        failureDescriptionContains("Execution failed for task ':updateDaemonJvm'")
-        failureHasCause("Toolchain resolvers did not return download URLs providing a JDK matching {languageVersion=20, vendor=vendor matching('FOO'), implementation=vendor-specific, nativeImageCapable=false} for any of the requested platforms")
+        failureHasCause("Invalid task configuration")
+        failureCauseContains("Toolchain resolvers did not return download URLs providing a JDK matching {languageVersion=20, vendor=vendor matching('FOO'), implementation=vendor-specific, nativeImageCapable=false} for any of the requested platforms")
     }
 
+    @Requires(IntegTestPreconditions.JavaHomeWithDifferentVersionAvailable)
     def "configuring the languageVersion will use that value for the generate properties file"() {
         given:
-        // Run the test by specifying a different version than the one used to execute, using two LTS alternatives
-        def javaVersion = Jvm.current().javaVersion == JavaVersion.VERSION_21 ? JavaVersion.VERSION_17 : JavaVersion.VERSION_21
         buildFile("""
 tasks.named("updateDaemonJvm") {
-    languageVersion = JavaLanguageVersion.of(${javaVersion.majorVersion})
+    languageVersion = JavaLanguageVersion.of(${AvailableJavaHomes.differentVersion.javaVersionMajor})
     toolchainPlatforms = []
 }
 """)
@@ -340,7 +343,7 @@ tasks.named("updateDaemonJvm") {
         run "updateDaemonJvm"
 
         then:
-        assertJvmCriteria(javaVersion)
+        assertJvmCriteria(AvailableJavaHomes.differentVersion.javaVersion)
 
     }
 

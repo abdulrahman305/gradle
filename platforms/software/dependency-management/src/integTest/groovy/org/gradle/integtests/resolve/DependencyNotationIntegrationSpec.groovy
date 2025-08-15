@@ -37,7 +37,7 @@ def someDependency = project.dependencies.create(files('foo.txt'))
 dependencies {
     conf someDependency
     conf "org.mockito:mockito-core:1.8"
-    conf group: 'org.spockframework', name: 'spock-core', version: '1.0'
+    conf("org.spockframework:spock-core:1.0")
     conf provider { "junit:junit:4.12" }
 
     conf('org.test:configured') {
@@ -62,9 +62,6 @@ task checkDeps {
         def configuredDep = deps.find { it instanceof ExternalDependency && it.group == 'org.test' && it.name == 'configured' }
         assert configuredDep.version == '1.1'
         assert configuredDep.transitive == false
-
-        deps = configurations.gradleStuff.dependencies
-        assert deps.findAll { it instanceof SelfResolvingDependency }.size() > 0 : "should include gradle api jars"
 
         deps = configurations.allowsCollections.dependencies
         assert deps.size() == 2
@@ -181,14 +178,12 @@ task checkDeps
                 conf gradleApi()
             }
 
-            assert dependencies.gradleApi().contentEquals(dependencies.gradleApi())
             assert dependencies.gradleApi().is(dependencies.gradleApi())
             assert dependencies.gradleApi() == dependencies.gradleApi()
             assert configurations.conf.dependencies.contains(dependencies.gradleApi())
         """
 
         then:
-        executer.expectDocumentedDeprecationWarning("The Dependency.contentEquals(Dependency) method has been deprecated. This is scheduled to be removed in Gradle 9.0. Use Object.equals(Object) instead Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#deprecated_content_equals")
         succeeds("help")
     }
 
@@ -235,21 +230,4 @@ task checkDeps
         result.hasErrorOutput("Adding a Configuration as a dependency is no longer allowed as of Gradle 8.0.")
     }
 
-    def "contentEquals is deprecated"() {
-        buildFile << """
-            def d1 = dependencies.create(files())
-            def d2 = dependencies.create('org.foo:baz:1.0')
-            def d3 = dependencies.create(project)
-
-            def other = dependencies.create('org.other:foo:1.0')
-
-            d1.contentEquals(other)
-            d2.contentEquals(other)
-            d3.contentEquals(other)
-        """
-
-        expect:
-        3.times { executer.expectDocumentedDeprecationWarning("The Dependency.contentEquals(Dependency) method has been deprecated. This is scheduled to be removed in Gradle 9.0. Use Object.equals(Object) instead Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#deprecated_content_equals") }
-        succeeds("help")
-    }
 }

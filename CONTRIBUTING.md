@@ -67,6 +67,8 @@ Gradle uses pull requests for contributions. Fork [gradle/gradle](https://github
     git config user.name 'First Last'
     git config user.email user@example.com
 
+### IntelliJ IDEA
+
 #### Import Gradle into IntelliJ
 
 To import Gradle into IntelliJ:
@@ -79,6 +81,11 @@ NOTE: Due to the project size, the very first import can take a while and Intell
 IntelliJ automatically hides stacktrace elements from the `org.gradle` package, which makes running/debugging tests more difficult. You can disable this behavior by changing IntelliJ Preferences under Editor -> General -> Console. In the "Fold lines that contain" section, remove the `org.gradle` entry.
 
 If you did not have a Adoptium Java 17 SDK installed before importing the project into IntelliJ and after adding Adoptium Java 17 SDK your IntelliJ still uses the wrong SDK version, you might need to invalidate IntelliJ's caches before reloading the project.
+
+#### Install Develocity IntelliJ plugin
+
+Consider installing the [Develocity IntelliJ plugin](https://plugins.jetbrains.com/plugin/27471-develocity) to bring real-time Gradle build analysis directly into your IDE. 
+It helps developers optimize performance and gain deeper insights into their builds.
 
 ## Making your change
 
@@ -96,7 +103,7 @@ All code contributions should contain the following:
 
 Your code needs to run on [all versions of Java that Gradle supports](platforms/documentation/docs/src/docs/userguide/releases/compatibility.adoc) and across all supported operating systems (macOS, Windows, Linux). The [Gradle CI system](http://builds.gradle.org/) will verify this, but here are some pointers that will avoid surprises:
 
-* Be careful when using features introduced in Java 1.7 or later. Some parts of Gradle still need to run on Java 6.
+* Be careful when using features introduced in Java 9 or later. Some parts of Gradle still need to run on Java 8.
 * Normalize file paths in tests. The `org.gradle.util.internal.TextUtil` class has some useful functions for this purpose.
 
 You can consult the [Architecture documentation](architecture) to learn about some of the architecture of Gradle.
@@ -328,7 +335,7 @@ For more information on the configuration cache, see the [user manual](https://d
 
 Gradle, Inc runs a set of remote build cache nodes to speed up local builds when developing Gradle. By default, the build is [configured](https://github.com/gradle/gradle-org-conventions-plugin#what-it-does) to use the build cache node in the EU region.
 
-The build cache has anonymous read access, so you don't need to authenticate in order to use it. You can use a different build cache node by specifying `-DcacheNode=us` for a build cache node in the US or `-DcacheNode=au` for a build cache node in Australia.
+The build cache has anonymous read access, so you don't need to authenticate in order to use it. You can use a different build cache node by specifying `-Ddevelocity.edge.discovery=false -DcacheNode=us` for a build cache node in the US or `-Ddevelocity.edge.discovery=false -DcacheNode=au` for a build cache node in Australia.
 
 If you are not getting cache hits from the build cache, you may be using the wrong version of Java. A fixed version (Java 11) is required to get remote cache hits.
 

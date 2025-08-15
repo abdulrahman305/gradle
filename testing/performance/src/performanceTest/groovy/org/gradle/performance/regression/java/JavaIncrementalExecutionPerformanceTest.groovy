@@ -50,9 +50,10 @@ class JavaIncrementalExecutionPerformanceTest extends AbstractIncrementalExecuti
 
     @RunFor([
         @Scenario(type = PER_COMMIT, operatingSystems = LINUX, testProjects = ["largeGroovyMultiProject", "largeMonolithicJavaProject", "largeMonolithicGroovyProject"], iterationMatcher = "assemble for non-abi change"),
+        @Scenario(type = PER_COMMIT, operatingSystems = LINUX, testProjects = ["largeMonolithicJavaProject"], iterationMatcher = "assemble for non-abi change with file system sensitive archives"),
         @Scenario(type = PER_COMMIT, operatingSystems = [LINUX, WINDOWS, MAC_OS], testProjects = "largeJavaMultiProject")
     ])
-    def "assemble for non-abi change#configurationCaching"() {
+    def "assemble for non-abi change#configurationCaching#withFileSystemSensitiveArchives"() {
         given:
         runner.tasksToRun = ['assemble']
         runner.addBuildMutator {
@@ -60,6 +61,7 @@ class JavaIncrementalExecutionPerformanceTest extends AbstractIncrementalExecuti
             return isGroovyProject ? new ApplyNonAbiChangeToGroovySourceFileMutator(fileToChange) : new ApplyNonAbiChangeToJavaSourceFileMutator(fileToChange)
         }
         enableConfigurationCaching(configurationCachingEnabled)
+        configureBuildArchives(useFileSystemSensitiveArchives)
 
         when:
         def result = runner.run()
@@ -68,8 +70,10 @@ class JavaIncrementalExecutionPerformanceTest extends AbstractIncrementalExecuti
         result.assertCurrentVersionHasNotRegressed()
 
         where:
-        configurationCachingEnabled << [true, false]
-        configurationCaching = configurationCachingMessage(configurationCachingEnabled)
+        configurationCachingEnabled | configurationCaching                                     | useFileSystemSensitiveArchives | withFileSystemSensitiveArchives
+        true                        | configurationCachingMessage(configurationCachingEnabled) | false                          | withFileSystemSensitiveArchives(useFileSystemSensitiveArchives)
+        false                       | configurationCachingMessage(configurationCachingEnabled) | false                          | withFileSystemSensitiveArchives(useFileSystemSensitiveArchives)
+        false                       | configurationCachingMessage(configurationCachingEnabled) | true                           | withFileSystemSensitiveArchives(useFileSystemSensitiveArchives)
     }
 
     @RunFor([

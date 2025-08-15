@@ -23,17 +23,17 @@ Include only their name, impactful features should be called out separately belo
 
 We would like to thank the following community members for their contributions to this release of Gradle:
 
-Be sure to check out the [public roadmap](https://blog.gradle.org/roadmap-announcement) for insight into what's planned for future releases.
+Be sure to check out the [public roadmap](https://roadmap.gradle.org) for insight into what's planned for future releases.
 
 ## Upgrade instructions
 
 Switch your build to use Gradle @version@ by updating the [wrapper](userguide/gradle_wrapper.html) in your project:
 
-```
+```text
 ./gradlew wrapper --gradle-version=@version@ && ./gradlew wrapper
 ```
 
-See the [Gradle 8.x upgrade guide](userguide/upgrading_version_8.html#changes_@baseVersion@) to learn about deprecations, breaking changes, and other considerations when upgrading to Gradle @version@.
+See the [Gradle 9.x upgrade guide](userguide/upgrading_version_9.html#changes_@baseVersion@) to learn about deprecations, breaking changes, and other considerations when upgrading to Gradle @version@.
 
 For Java, Groovy, Kotlin, and Android compatibility, see the [full compatibility notes](userguide/compatibility.html).   
 
@@ -73,12 +73,6 @@ For Wistia, contact Gradle's Video Team.
 ADD RELEASE FEATURES BELOW
 vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv -->
 
-=== Gradle API now uses JSpecify Nullability Annotations
-
-Since Gradle 5.0 we've been using annotations from the dormant and unfinished JSR-305 to make the nullness of type usages explicit for the Gradle API.
-Starting with Gradle 9.0, the Gradle API is annotated using JSpecify instead.
-
-For more details and potential breakages, see the dedicated [upgrading guide section](userguide/upgrading_version_8.html).
 
 
 <!-- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -94,9 +88,11 @@ See the User Manual section on the "[Feature Lifecycle](userguide/feature_lifecy
 
 The following are the features that have been promoted in this Gradle release.
 
-<!--
-### Example promoted
--->
+### Daemon toolchain is now stable
+
+Gradle introduced the [Daemon toolchain](userguide/gradle_daemon.html#sec:daemon_jvm_criteria) in Gradle 8.8 as an incubating feature.
+Since then the feature has been improved and stabilized.
+It is now considered stable and will no longer print an incubation warning when used.
 
 ## Fixed issues
 

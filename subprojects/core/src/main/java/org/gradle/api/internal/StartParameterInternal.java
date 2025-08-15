@@ -21,6 +21,7 @@ import org.gradle.initialization.BuildLayoutParameters;
 import org.gradle.initialization.StartParameterBuildOptions.ConfigurationCacheProblemsOption;
 import org.gradle.internal.buildoption.Option;
 import org.gradle.internal.buildtree.BuildModelParameters;
+import org.gradle.internal.deprecation.StartParameterDeprecations;
 import org.gradle.internal.watch.registry.WatchMode;
 import org.jspecify.annotations.Nullable;
 
@@ -36,9 +37,11 @@ public class StartParameterInternal extends StartParameter {
     private ConfigurationCacheProblemsOption.Value configurationCacheProblems = ConfigurationCacheProblemsOption.Value.FAIL;
     private boolean configurationCacheDebug;
     private boolean configurationCacheIgnoreInputsDuringStore = false;
+    private boolean configurationCacheIgnoreUnsupportedBuildEventsListeners = false;
     private int configurationCacheMaxProblems = 512;
     private @Nullable String configurationCacheIgnoredFileSystemCheckInputs = null;
     private boolean configurationCacheParallel;
+    private boolean configurationCacheReadOnly;
     private boolean configurationCacheRecreateCache;
     private boolean configurationCacheQuiet;
     private int configurationCacheEntriesPerKey = 1;
@@ -76,8 +79,10 @@ public class StartParameterInternal extends StartParameter {
         p.configurationCacheProblems = configurationCacheProblems;
         p.configurationCacheMaxProblems = configurationCacheMaxProblems;
         p.configurationCacheIgnoredFileSystemCheckInputs = configurationCacheIgnoredFileSystemCheckInputs;
+        p.configurationCacheIgnoreUnsupportedBuildEventsListeners = configurationCacheIgnoreUnsupportedBuildEventsListeners;
         p.configurationCacheDebug = configurationCacheDebug;
         p.configurationCacheParallel = configurationCacheParallel;
+        p.configurationCacheReadOnly = configurationCacheReadOnly;
         p.configurationCacheRecreateCache = configurationCacheRecreateCache;
         p.configurationCacheQuiet = configurationCacheQuiet;
         p.configurationCacheEntriesPerKey = configurationCacheEntriesPerKey;
@@ -129,14 +134,6 @@ public class StartParameterInternal extends StartParameter {
     }
 
     /**
-     * Used by the Kotlin plugin, via reflection.
-     */
-    @Deprecated
-    public boolean isConfigurationCache() {
-        return getConfigurationCache().get();
-    }
-
-    /**
      * Is the configuration cache requested? Note: depending on the build action, this may not be the final value for this option.
      *
      * Consider querying {@link BuildModelParameters} instead.
@@ -156,6 +153,7 @@ public class StartParameterInternal extends StartParameter {
     @SuppressWarnings("deprecation")
     @Override
     public boolean isConfigurationCacheRequested() {
+        StartParameterDeprecations.nagOnIsConfigurationCacheRequested();
         return configurationCache.get();
     }
 
@@ -187,12 +185,28 @@ public class StartParameterInternal extends StartParameter {
         configurationCacheIgnoreInputsDuringStore = ignoreInputsDuringStore;
     }
 
+    public void setConfigurationCacheIgnoreUnsupportedBuildEventsListeners(boolean configurationCacheIgnoreUnsupportedBuildEventsListeners) {
+        this.configurationCacheIgnoreUnsupportedBuildEventsListeners = configurationCacheIgnoreUnsupportedBuildEventsListeners;
+    }
+
+    public boolean isConfigurationCacheIgnoreUnsupportedBuildEventsListeners() {
+        return configurationCacheIgnoreUnsupportedBuildEventsListeners;
+    }
+
     public boolean isConfigurationCacheParallel() {
         return configurationCacheParallel;
     }
 
     public void setConfigurationCacheParallel(boolean parallel) {
         this.configurationCacheParallel = parallel;
+    }
+
+    public boolean isConfigurationCacheReadOnly() {
+        return configurationCacheReadOnly;
+    }
+
+    public void setConfigurationCacheReadOnly(boolean readOnly) {
+        this.configurationCacheReadOnly = readOnly;
     }
 
     public int getConfigurationCacheEntriesPerKey() {

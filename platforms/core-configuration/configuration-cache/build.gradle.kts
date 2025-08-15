@@ -11,12 +11,18 @@ tasks.configCacheIntegTest {
     enabled = false
 }
 
+// The integration tests in this project do not need to run in 'isolated projects' mode.
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}
+
 dependencies {
     api(projects.baseServices)
     api(projects.buildOperations)
     api(projects.concurrent)
     api(projects.configurationCacheBase)
     api(projects.configurationProblemsBase)
+    api(projects.coreSerializationCodecs)
     api(projects.core)
     api(projects.coreApi)
     api(projects.dependencyManagement)
@@ -42,7 +48,6 @@ dependencies {
     implementation(projects.buildProcessServices)
     implementation(projects.classloaders)
     implementation(projects.coreKotlinExtensions)
-    implementation(projects.coreSerializationCodecs)
     implementation(projects.dependencyManagementSerializationCodecs)
     implementation(projects.encryptionServices)
     implementation(projects.enterpriseOperations)
@@ -53,7 +58,6 @@ dependencies {
     implementation(projects.files)
     implementation(projects.flowServices)
     implementation(projects.functional)
-    implementation(projects.guavaSerializationCodecs)
     implementation(projects.hashing)
     implementation(projects.inputTracking)
     implementation(projects.instrumentationAgentServices)
@@ -61,12 +65,12 @@ dependencies {
     implementation(projects.modelCore)
     implementation(projects.persistentCache)
     implementation(projects.problemsApi)
+    implementation(projects.scopedPersistentCache)
     implementation(projects.serialization)
     implementation(projects.stdlibKotlinExtensions)
     implementation(projects.stdlibSerializationCodecs)
     implementation(projects.toolingApi)
 
-    implementation(libs.fastutil)
     implementation(libs.guava)
     implementation(libs.jspecify)
     implementation(libs.kryo)
@@ -81,9 +85,10 @@ dependencies {
     runtimeOnly(libs.kotlinReflect)
 
     testImplementation(projects.beanSerializationServices)
+    testImplementation(testFixtures(projects.beanSerializationServices))
     testImplementation(projects.io)
     testImplementation(testFixtures(projects.core))
-    testImplementation(libs.mockitoKotlin2)
+    testImplementation(libs.mockitoKotlin)
     testImplementation(libs.kotlinCoroutinesDebug)
 
     integTestImplementation(projects.cli)
@@ -118,7 +123,4 @@ dependencies {
 
 packageCycles {
     excludePatterns.add("org/gradle/internal/cc/**")
-}
-tasks.isolatedProjectsIntegTest {
-    enabled = false
 }

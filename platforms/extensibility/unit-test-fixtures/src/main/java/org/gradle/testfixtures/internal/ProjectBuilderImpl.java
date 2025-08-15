@@ -19,13 +19,11 @@ package org.gradle.testfixtures.internal;
 import org.gradle.api.JavaVersion;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.ModuleVersionIdentifier;
-import org.gradle.api.artifacts.component.BuildIdentifier;
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
 import org.gradle.api.internal.BuildDefinition;
 import org.gradle.api.internal.DocumentationRegistry;
 import org.gradle.api.internal.GradleInternal;
 import org.gradle.api.internal.StartParameterInternal;
-import org.gradle.api.internal.artifacts.DefaultBuildIdentifier;
 import org.gradle.api.internal.file.FileResolver;
 import org.gradle.api.internal.file.temp.DefaultTemporaryFileProvider;
 import org.gradle.api.internal.file.temp.TemporaryFileProvider;
@@ -60,6 +58,7 @@ import org.gradle.internal.composite.IncludedBuildInternal;
 import org.gradle.internal.concurrent.Stoppable;
 import org.gradle.internal.id.UniqueId;
 import org.gradle.internal.jvm.SupportedJavaVersions;
+import org.gradle.internal.jvm.UnsupportedJavaRuntimeException;
 import org.gradle.internal.logging.services.LoggingServiceRegistry;
 import org.gradle.internal.nativeintegration.services.NativeServices;
 import org.gradle.internal.nativeintegration.services.NativeServices.NativeServicesMode;
@@ -77,6 +76,7 @@ import org.gradle.internal.time.Time;
 import org.gradle.internal.work.ProjectParallelExecutionController;
 import org.gradle.internal.work.WorkerLeaseRegistry;
 import org.gradle.internal.work.WorkerLeaseService;
+import org.gradle.util.GradleVersion;
 import org.gradle.util.Path;
 import org.jspecify.annotations.Nullable;
 
@@ -113,16 +113,23 @@ public class ProjectBuilderImpl {
     }
 
     public ProjectInternal createProject(String name, File inputProjectDir, @Nullable File gradleUserHomeDir) {
+        // ProjectBuilder uses daemon classes, so it has the same JVM compatibility.
+        UnsupportedJavaRuntimeException.assertCurrentProcessSupportsDaemonJavaVersion();
 
         int currentMajor = Integer.parseInt(JavaVersion.current().getMajorVersion());
-        if (currentMajor < SupportedJavaVersions.FUTURE_MINIMUM_JAVA_VERSION) {
+        if (currentMajor < SupportedJavaVersions.FUTURE_MINIMUM_DAEMON_JAVA_VERSION) {
+            int currentMajorGradleVersion = GradleVersion.current().getMajorVersion();
+
             // We do not use a DeprecationLogger here since the logger is not initialized when using the ProjectBuilder.
-            LOGGER.warn("Executing Gradle on JVM versions 16 and lower has been deprecated. " +
-                "This will fail with an error in Gradle 9.0. " +
-                "Use JVM 17 or greater to execute Gradle. " +
+            LOGGER.warn("Executing Gradle on JVM versions {} and lower has been deprecated. " +
+                "This will fail with an error in Gradle {}. " +
+                "Use JVM {} or greater to execute Gradle. " +
                 "Projects can continue to use older JVM versions via toolchains. " +
                 "Consult the upgrading guide for further information: {}",
-                new DocumentationRegistry().getDocumentationFor("upgrading_version_8", "minimum_daemon_jvm_version")
+                SupportedJavaVersions.FUTURE_MINIMUM_DAEMON_JAVA_VERSION - 1,
+                currentMajorGradleVersion + 1,
+                SupportedJavaVersions.FUTURE_MINIMUM_DAEMON_JAVA_VERSION,
+                new DocumentationRegistry().getDocumentationFor("upgrading_version_" + currentMajorGradleVersion, "minimum_daemon_jvm_version")
             );
         }
 
@@ -279,11 +286,6 @@ public class ProjectBuilderImpl {
         }
 
         @Override
-        public BuildIdentifier getBuildIdentifier() {
-            return DefaultBuildIdentifier.ROOT;
-        }
-
-        @Override
         public Path getIdentityPath() {
             return Path.ROOT;
         }
@@ -291,11 +293,6 @@ public class ProjectBuilderImpl {
         @Override
         public boolean isImplicitBuild() {
             return false;
-        }
-
-        @Override
-        public Path calculateIdentityPathForProject(Path projectPath) {
-            return projectPath;
         }
 
         @Override
@@ -315,11 +312,6 @@ public class ProjectBuilderImpl {
 
         @Override
         public Set<Pair<ModuleVersionIdentifier, ProjectComponentIdentifier>> getAvailableModules() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ProjectComponentIdentifier idToReferenceProjectFromAnotherBuild(ProjectComponentIdentifier identifier) {
             throw new UnsupportedOperationException();
         }
 

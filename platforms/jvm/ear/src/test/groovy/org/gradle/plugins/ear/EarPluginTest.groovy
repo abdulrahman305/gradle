@@ -17,6 +17,7 @@
 package org.gradle.plugins.ear
 
 import org.gradle.api.Action
+import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.internal.TaskInternal
@@ -54,7 +55,6 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
 
         then:
         project.getPlugins().hasPlugin(BasePlugin)
-        project.convention.plugins.ear instanceof EarPluginConvention
     }
 
     def "creates configurations"() {
@@ -65,14 +65,12 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
         def configuration = project.configurations.getByName(EarPlugin.DEPLOY_CONFIGURATION_NAME)
 
         then:
-        !configuration.visible
         !configuration.transitive
 
         when:
         configuration = project.configurations.getByName(EarPlugin.EARLIB_CONFIGURATION_NAME)
 
         then:
-        !configuration.visible
         configuration.transitive
     }
 
@@ -81,11 +79,11 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
         project.pluginManager.apply(EarPlugin)
 
         and:
-        def task = project.tasks[EarPlugin.EAR_TASK_NAME]
+        def task = earTaskOf(project)
 
         then:
         task instanceof Ear
-        task.destinationDirectory.get() == project.libsDirectory.get()
+        task.destinationDirectory.get() == project.base.libsDirectory.get()
 
         when:
         task = project.tasks[BasePlugin.ASSEMBLE_TASK_NAME]
@@ -100,12 +98,12 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
         project.pluginManager.apply(EarPlugin)
 
         and:
-        def task = project.tasks[EarPlugin.EAR_TASK_NAME]
+        def task = earTaskOf(project)
 
         then:
         task instanceof Ear
         task dependsOn(JvmConstants.CLASSES_TASK_NAME, JvmConstants.COMPILE_JAVA_TASK_NAME)
-        task.destinationDirectory.get() == project.libsDirectory.get()
+        task.destinationDirectory.get() == project.base.libsDirectory.get()
 
         when:
         task = project.tasks[BasePlugin.ASSEMBLE_TASK_NAME]
@@ -115,6 +113,8 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
     }
 
     def "depends on earlib config"() {
+        TestUtil.initDeprecationLogger("because archives configuration is deprecated")
+
         when:
         project.pluginManager.apply(EarPlugin)
 
@@ -128,7 +128,7 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
         }
 
         and:
-        def task = project.tasks[EarPlugin.EAR_TASK_NAME]
+        def task = earTaskOf(project)
 
         then:
         task.taskDependencies.getDependencies(task)*.path.contains(':child:jar')
@@ -142,7 +142,7 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
         def task = project.task(type: Ear, 'customEar')
 
         then:
-        task.destinationDirectory.get() == project.libsDirectory.get()
+        task.destinationDirectory.get() == project.base.libsDirectory.get()
     }
 
     def "works with java base plugin applied before ear plugin"() {
@@ -154,7 +154,7 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
         def task = project.task(type: Ear, 'customEar')
 
         then:
-        task.destinationDirectory.get() == project.libsDirectory.get()
+        task.destinationDirectory.get() == project.base.libsDirectory.get()
     }
 
     def "applies mappings to archive tasks for java project"() {
@@ -166,7 +166,7 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
         def task = project.task(type: Ear, 'customEar')
 
         then:
-        task.destinationDirectory.get() == project.libsDirectory.get()
+        task.destinationDirectory.get() == project.base.libsDirectory.get()
         task dependsOn(hasItems(JvmConstants.CLASSES_TASK_NAME, JvmConstants.COMPILE_JAVA_TASK_NAME))
     }
 
@@ -218,7 +218,7 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
         project.pluginManager.apply(EarPlugin)
 
         and:
-        executeWithDependencies project.tasks[EarPlugin.EAR_TASK_NAME]
+        executeWithDependencies earTaskOf(project)
 
         then:
         inEar "test2.txt"
@@ -232,16 +232,18 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
 
         when:
         project.pluginManager.apply(EarPlugin)
-        project.convention.plugins.ear.appDirName = "src/main/myapp"
+        (earTaskOf(project) as Ear).appDirectory.convention(project.layout.projectDirectory.dir("src/main/myapp"))
 
         and:
-        executeWithDependencies project.tasks[EarPlugin.EAR_TASK_NAME]
+        executeWithDependencies earTaskOf(project)
 
         then:
         inEar "test.txt"
     }
 
     def "supports renaming lib dir"() {
+        TestUtil.initDeprecationLogger("because archives configuration is deprecated")
+
         given:
         def childProject = TestUtil.createChildProject(project, 'child')
         childProject.file("src/main/resources").mkdirs()
@@ -250,13 +252,13 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
 
         when:
         project.pluginManager.apply(EarPlugin)
-        project.convention.plugins.ear.libDirName = "APP-INF/lib"
+        earTaskOf(project).setLibDirName("APP-INF/lib")
         project.dependencies {
             earlib project(path: childProject.path, configuration: 'archives')
         }
 
         and:
-        executeWithDependencies project.tasks[EarPlugin.EAR_TASK_NAME]
+        executeWithDependencies earTaskOf(project)
 
         then:
         inEar "APP-INF/lib/child.jar"
@@ -281,7 +283,7 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
         }
 
         and:
-        executeWithDependencies project.tasks[EarPlugin.EAR_TASK_NAME]
+        executeWithDependencies earTaskOf(project)
 
         then:
         inEar "bean.jar"
@@ -292,7 +294,7 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
     def "supports generating deployment descriptor"() {
         when:
         project.pluginManager.apply(EarPlugin)
-        executeWithDependencies project.tasks[EarPlugin.EAR_TASK_NAME]
+        executeWithDependencies earTaskOf(project)
 
         then:
         inEar "META-INF/application.xml"
@@ -301,8 +303,8 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
     def "supports skipping deployment descriptor creation"() {
         when:
         project.pluginManager.apply(EarPlugin)
-        project.convention.plugins.ear.generateDeploymentDescriptor = false
-        executeWithDependencies project.tasks[EarPlugin.EAR_TASK_NAME]
+        earTaskOf(project).generateDeploymentDescriptor = false
+        executeWithDependencies earTaskOf(project)
 
         then:
         notInEar "META-INF/application.xml"
@@ -315,7 +317,7 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
 
         when:
         project.pluginManager.apply(EarPlugin)
-        executeWithDependencies project.tasks[EarPlugin.EAR_TASK_NAME]
+        executeWithDependencies earTaskOf(project)
 
         then:
         inEar("META-INF/application.xml").text == TEST_APP_XML
@@ -324,10 +326,10 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
     def "supports renaming deployment descriptor"() {
         when:
         project.pluginManager.apply(EarPlugin)
-        project.convention.plugins.ear.deploymentDescriptor {
+        earTaskOf(project).deploymentDescriptor {
             fileName = "myapp.xml"
         }
-        executeWithDependencies project.tasks[EarPlugin.EAR_TASK_NAME]
+        executeWithDependencies earTaskOf(project)
 
         then:
         inEar "META-INF/myapp.xml"
@@ -340,10 +342,10 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
 
         when:
         project.pluginManager.apply(EarPlugin)
-        project.convention.plugins.ear.deploymentDescriptor {
+        earTaskOf(project).deploymentDescriptor {
             fileName = "myapp.xml"
         }
-        executeWithDependencies project.tasks[EarPlugin.EAR_TASK_NAME]
+        executeWithDependencies earTaskOf(project)
 
         then:
         inEar("META-INF/myapp.xml").text == TEST_APP_XML
@@ -352,10 +354,10 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
     def "can configure deployment descriptor using an Action"() {
         when:
         project.pluginManager.apply(EarPlugin)
-        project.convention.plugins.ear.deploymentDescriptor( { DeploymentDescriptor descriptor ->
-            descriptor.fileName = "myapp.xml"
-        } as Action<DeploymentDescriptor> )
-        executeWithDependencies project.tasks[EarPlugin.EAR_TASK_NAME]
+        earTaskOf(project).deploymentDescriptor({
+            it.fileName = "myapp.xml"
+        } as Action<DeploymentDescriptor>)
+        executeWithDependencies earTaskOf(project)
 
         then:
         inEar "META-INF/myapp.xml"
@@ -378,5 +380,9 @@ class EarPluginTest extends AbstractProjectBuilderSpec {
         def ear = project.zipTree("build/libs/${project.name}.ear")
         assert !ear.empty
         ear.matching { include path }.empty
+    }
+
+    private static Ear earTaskOf(Project project) {
+        project.tasks[EarPlugin.EAR_TASK_NAME]
     }
 }

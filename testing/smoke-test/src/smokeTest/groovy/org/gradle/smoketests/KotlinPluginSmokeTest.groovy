@@ -92,6 +92,8 @@ class KotlinPluginSmokeTest extends AbstractKotlinPluginSmokeTest {
                     implementation("org.jetbrains.kotlin:kotlin-test-junit5")
                 }
             }
+
+            $SKIP_METADATA_VERSION_CHECK
         """
 
         ["test", "integTest"].each {
@@ -109,12 +111,8 @@ class KotlinPluginSmokeTest extends AbstractKotlinPluginSmokeTest {
         def result = kgpRunner(false, kotlinPluginVersion, 'test', 'integTest')
             .deprecations(KotlinDeprecations) {
                 runner.expectLegacyDeprecationWarningIf(
-                    kotlinPluginVersion.baseVersion < KotlinGradlePluginVersions.KOTLIN_2_0_0,
-                    "Mutating dependency DefaultExternalModuleDependency{group='org.jetbrains.kotlin', name='kotlin-test-junit5', version='null', configuration='default'} after it has been finalized has been deprecated. This will fail with an error in Gradle 9.0. Consult the upgrading guide for further information: https://docs.gradle.org/${GradleVersion.current().version}/userguide/upgrading_version_8.html#dependency_mutate_dependency_collector_after_finalize"
-                )
-                runner.expectLegacyDeprecationWarningIf(
                     kotlinPluginVersion.baseVersion == KotlinGradlePluginVersions.KOTLIN_2_0_0,
-                    "Mutating dependency org.jetbrains.kotlin:kotlin-test-junit5: after it has been finalized has been deprecated. This will fail with an error in Gradle 9.0. Consult the upgrading guide for further information: https://docs.gradle.org/${GradleVersion.current().version}/userguide/upgrading_version_8.html#dependency_mutate_dependency_collector_after_finalize"
+                    "Mutating dependency org.jetbrains.kotlin:kotlin-test-junit5: after it has been finalized has been deprecated. This will fail with an error in Gradle 10. Consult the upgrading guide for further information: https://docs.gradle.org/${GradleVersion.current().version}/userguide/upgrading_version_8.html#dependency_mutate_dependency_collector_after_finalize"
                 )
             }.build()
 
@@ -152,6 +150,8 @@ class KotlinPluginSmokeTest extends AbstractKotlinPluginSmokeTest {
                 implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
                 implementation localGroovy()
             }
+
+            $SKIP_METADATA_VERSION_CHECK
         """
         file("src/main/groovy/Groovy.groovy") << "class Groovy { }"
         file("src/main/kotlin/Kotlin.kt") << "class Kotlin { val groovy = Groovy() }"
@@ -195,6 +195,8 @@ class KotlinPluginSmokeTest extends AbstractKotlinPluginSmokeTest {
             dependencies {
                 implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
             }
+
+            $SKIP_METADATA_VERSION_CHECK
         """
         file("src/main/kotlin/Kotlin.kt") << "class Kotlin { }"
         when:
@@ -212,6 +214,15 @@ class KotlinPluginSmokeTest extends AbstractKotlinPluginSmokeTest {
         where:
         kotlinVersion << TestedVersions.kotlin.versions
     }
+
+    private static final String SKIP_METADATA_VERSION_CHECK =
+        """
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                freeCompilerArgs += "-Xskip-metadata-version-check"
+            }
+        }
+        """
 
     @Override
     Map<String, Versions> getPluginsToValidate() {

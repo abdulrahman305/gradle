@@ -35,6 +35,21 @@ class ApplicationPluginIntegrationTest extends WellBehavedPluginTest {
         createSampleProjectSetup()
     }
 
+    def "can generate start scripts even if mainClass is not configured"() {
+        given:
+        buildFile.text = """
+            plugins {
+              id("application")
+            }
+        """
+        when:
+        succeeds('startScripts')
+
+        then:
+        assertGeneratedUnixStartScript()
+        assertGeneratedWindowsStartScript()
+    }
+
     def "can generate start scripts with minimal user configuration"() {
         when:
         succeeds('startScripts')
@@ -717,7 +732,7 @@ rootProject.name = 'sample'
         fails('execStartScript')
 
         then:
-        result.assertTaskExecuted(":execStartScript")
+        result.assertTaskScheduled(":execStartScript")
         !exploit.exists()
 
         where:

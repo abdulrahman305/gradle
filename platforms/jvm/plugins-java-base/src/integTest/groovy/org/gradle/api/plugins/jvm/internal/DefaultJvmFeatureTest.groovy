@@ -91,7 +91,6 @@ class DefaultJvmFeatureTest extends AbstractProjectBuilderSpec {
 
         then:
         def configuration = project.configurations.getByName(JvmConstants.JAVADOC_ELEMENTS_CONFIGURATION_NAME)
-        !configuration.visible
         !configuration.canBeResolved
         configuration.canBeConsumed
         (configuration.attributes.getAttribute(Usage.USAGE_ATTRIBUTE) as Usage).name == Usage.JAVA_RUNTIME
@@ -111,7 +110,6 @@ class DefaultJvmFeatureTest extends AbstractProjectBuilderSpec {
 
         then:
         def configuration = project.configurations.getByName(JvmConstants.SOURCES_ELEMENTS_CONFIGURATION_NAME)
-        !configuration.visible
         !configuration.canBeResolved
         configuration.canBeConsumed
         (configuration.attributes.getAttribute(Usage.USAGE_ATTRIBUTE) as Usage).name == Usage.JAVA_RUNTIME
@@ -131,8 +129,8 @@ class DefaultJvmFeatureTest extends AbstractProjectBuilderSpec {
 
         when:
         // The constructor and `with` methods have side effects, like creating domain objects in project-scope containers
-        def f1 = new DefaultJvmFeature("feature1", one, Collections.emptySet(), project, false, false)
-        def f2 = new DefaultJvmFeature("feature2", two, Collections.emptySet(), project, false, false)
+        def f1 = new DefaultJvmFeature("feature1", one, Collections.emptySet(), project, false)
+        def f2 = new DefaultJvmFeature("feature2", two, Collections.emptySet(), project, false)
 
         f1.withJavadocJar()
         f1.withSourcesJar()
@@ -155,7 +153,6 @@ class DefaultJvmFeatureTest extends AbstractProjectBuilderSpec {
             sourceSet,
             Collections.emptySet(),
             project,
-            false,
             false
         )
     }
