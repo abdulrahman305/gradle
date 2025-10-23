@@ -14,24 +14,16 @@
  * limitations under the License.
  */
 
-package org.gradle.composite;
+package org.gradle.kotlin.dsl.support
 
-import org.gradle.internal.problems.failure.Failure;
-import org.gradle.internal.service.scopes.Scope;
-import org.gradle.internal.service.scopes.ServiceScope;
-import org.jspecify.annotations.NullMarked;
+import org.gradle.internal.hash.Hashing
+import org.gradle.util.internal.TextUtil.convertLineSeparatorsToUnix
 
-import java.util.Collection;
+object KotlinScriptHashing {
 
-@ServiceScope(Scope.BuildTree.class)
-@NullMarked
-public interface ResilientIssuesRecorder {
+    fun hashOf(scriptText: CharSequence) =
+        hashOfNormalisedString(convertLineSeparatorsToUnix(scriptText.toString()))
 
-    void recordResilientIssue(Throwable throwable);
-
-    void recordResilientIssue(Failure failure);
-
-    Collection<Failure> getFailures();
-
-    void clear();
+    fun hashOfNormalisedString(scriptText: CharSequence) =
+        Hashing.hashString(scriptText).toString()
 }
