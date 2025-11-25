@@ -17,6 +17,7 @@
 package org.gradle.smoketests
 
 import org.gradle.integtests.fixtures.android.AndroidHome
+import org.gradle.integtests.fixtures.versions.KotlinGradlePluginVersions
 import org.gradle.test.fixtures.dsl.GradleDsl
 import org.gradle.testdistribution.LocalOnly
 import org.gradle.util.internal.VersionNumber
@@ -41,7 +42,8 @@ abstract class AbstractKotlinPluginAndroidSmokeTest extends AbstractSmokeTest im
     def "kotlin android on android-kotlin-example using #dsl DSL (kotlin=#kotlinPluginVersion, agp=#androidPluginVersion)"(String kotlinPluginVersion, String androidPluginVersion) {
         given:
         AndroidHome.assertIsSet()
-        AGP_VERSIONS.assumeAgpSupportsCurrentJavaVersionAndKotlinVersion(androidPluginVersion, kotlinPluginVersion)
+        AGP_VERSIONS.assumeCurrentJavaVersionIsSupportedBy(androidPluginVersion)
+        KotlinGradlePluginVersions.assumeCurrentJavaVersionIsSupportedBy(kotlinPluginVersion)
         this.kotlinPluginVersion = VersionNumber.parse(kotlinPluginVersion)
         useSample(getSampleName())
 
@@ -59,7 +61,6 @@ abstract class AbstractKotlinPluginAndroidSmokeTest extends AbstractSmokeTest im
         def result = mixedRunner(androidPluginVersion, kotlinPluginVersionNumber, 'clean', ":app:testDebugUnitTestCoverage")
             .deprecations(AndroidDeprecations) {
                 expectMultiStringNotationDeprecation(androidPluginVersion)
-                expectIsPropertyDeprecationWarnings(androidPluginVersion)
             }
             .build()
 

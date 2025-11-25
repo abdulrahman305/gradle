@@ -40,11 +40,11 @@ import java.util.stream.Collectors
 import java.util.stream.Stream
 
 import static org.hamcrest.CoreMatchers.equalTo
-import static org.hamcrest.CoreMatchers.hasItem
 import static org.hamcrest.CoreMatchers.hasItems
 import static org.hamcrest.CoreMatchers.not
 import static org.hamcrest.MatcherAssert.assertThat
 import static org.hamcrest.Matchers.greaterThanOrEqualTo
+import static org.hamcrest.Matchers.notNullValue
 import static org.junit.jupiter.api.Assertions.fail
 
 class GenericHtmlTestExecutionResult implements GenericTestExecutionResult {
@@ -52,7 +52,7 @@ class GenericHtmlTestExecutionResult implements GenericTestExecutionResult {
         def reportPath = htmlReportDirectory.toPath()
         try (Stream<java.nio.file.Path> paths = Files.walk(reportPath)) {
             return paths.filter {
-                it.getFileName().toString() == "index.html"
+                it.getFileName().toString().endsWith(".html")
             }.map {
                 def html = Jsoup.parse(it.toFile(), null)
                 def breadcrumbs = html.selectFirst(".breadcrumbs")
@@ -157,12 +157,12 @@ Unexpected paths: ${unexpectedPaths}""")
     @Override
     TestPathExecutionResult testPath(String rootTestPath) {
         assertAtLeastTestPathsExecuted(rootTestPath)
-        return new HtmlTestPathExecutionResult(diskPathForTestPath(frameworkTestPath(rootTestPath)).toFile())
+        return new HtmlTestPathExecutionResult(testFramework, diskPathForTestPath(frameworkTestPath(rootTestPath)).toFile())
     }
 
     TestPathExecutionResult testPathPreNormalized(String rootTestPath) {
         assertAtLeastTestPathsExecutedPreNormalized(rootTestPath)
-        return new HtmlTestPathExecutionResult(diskPathForTestPath(rootTestPath).toFile())
+        return new HtmlTestPathExecutionResult(testFramework, diskPathForTestPath(rootTestPath).toFile())
     }
 
     @Override
@@ -221,30 +221,48 @@ Unexpected paths: ${unexpectedPaths}""")
     }
 
     private java.nio.file.Path diskPathForTestPath(String frameworkTestPath) {
-        String processedPath = Strings.isNullOrEmpty(frameworkTestPath) ? "index.html" : GenericHtmlTestReportGenerator.getFilePath(Path.path(frameworkTestPath))
-        htmlReportDirectory.toPath().resolve(processedPath)
+        if (Strings.isNullOrEmpty(frameworkTestPath)) {
+            return htmlReportDirectory.toPath().resolve("index.html")
+        }
+        java.nio.file.Path nonLeafPath = htmlReportDirectory.toPath().resolve(
+            GenericHtmlTestReportGenerator.getFilePath(Path.path(frameworkTestPath), false)
+        )
+        if (Files.exists(nonLeafPath)) {
+            return nonLeafPath
+        } else {
+            return htmlReportDirectory.toPath().resolve(
+                GenericHtmlTestReportGenerator.getFilePath(Path.path(frameworkTestPath), true)
+            )
+        }
+    }
+
+    private static Map<String, Element> getTabs(Element base) {
+        def container = base.selectFirst('.tab-container')
+        // Check container only for presence. If no container, return empty map.
+        // Otherwise, we expect the structure to be correct.
+        if (container == null) {
+            return Collections.emptyMap()
+        }
+        def tabs = container.select('> .tab')
+        def tabNames = container.select('> .tabLinks > li')
+        assert tabs.size() == tabNames.size()
+        Map<String, Element> result = new LinkedHashMap<>()
+        for (int i = 0; i < tabs.size(); i++) {
+            def tabName = tabNames.get(i).text()
+            assert !result.containsKey(tabName) : "Duplicate tab name: " + tabName
+            result[tabName] = tabs.get(i)
+        }
+        return result
     }
 
     private static class HtmlTestPathExecutionResult implements TestPathExecutionResult {
-        private static Map<String, Element> getTabs(Element base) {
-            def container = base.selectFirst('.tab-container')
-            def tabs = container.select('> .tab')
-            def tabNames = container.select('> .tabLinks > li')
-            assert tabs.size() == tabNames.size()
-            Map<String, Element> result = new LinkedHashMap<>();
-            for (int i = 0; i < tabs.size(); i++) {
-                def tabName = tabNames.get(i).text()
-                assert !result.containsKey(tabName) : "Duplicate tab name: " + tabName
-                result[tabName] = tabs.get(i)
-            }
-            return result
-        }
-
+        private final TestFramework testFramework
         private final List<String> rootNames = []
         private final List<String> rootDisplayNames = []
         private final ListMultimap<String, Element> rootAndRunElements = LinkedListMultimap.create()
 
-        HtmlTestPathExecutionResult(File htmlFile) {
+        HtmlTestPathExecutionResult(TestFramework testFramework, File htmlFile) {
+            this.testFramework = testFramework
             Document html = Jsoup.parse(htmlFile, null)
             Map<String, Element> rootElements = getTabs(html)
             rootElements.forEach { name, content ->
@@ -278,13 +296,13 @@ Unexpected paths: ${unexpectedPaths}""")
                 singleRoot.size(),
                 equalTo(1)
             )
-            return new HtmlTestPathRootExecutionResult(singleRoot.first(), rootDisplayNames.first())
+            return new HtmlTestPathRootExecutionResult(testFramework, singleRoot.first(), rootDisplayNames.first())
         }
 
         @Override
         TestPathRootExecutionResult singleRootWithRun(int runNumber) {
             List<Element> singleRoot = getSingleRoot()
-            return new HtmlTestPathRootExecutionResult(singleRoot.get(runNumber - 1), rootDisplayNames.first())
+            return new HtmlTestPathRootExecutionResult(testFramework, singleRoot.get(runNumber - 1), rootDisplayNames.first())
         }
 
         @Override
@@ -297,7 +315,7 @@ Unexpected paths: ${unexpectedPaths}""")
                 equalTo(1)
             )
             def index = rootNames.indexOf(rootName)
-            return new HtmlTestPathRootExecutionResult(runs.first(), rootDisplayNames[index])
+            return new HtmlTestPathRootExecutionResult(testFramework, runs.first(), rootDisplayNames[index])
         }
 
         @Override
@@ -311,7 +329,7 @@ Unexpected paths: ${unexpectedPaths}""")
                 greaterThanOrEqualTo(runNumber)
             )
             def index = rootNames.indexOf(rootName)
-            return new HtmlTestPathRootExecutionResult(runs.get(runNumber - 1), rootDisplayNames[index])
+            return new HtmlTestPathRootExecutionResult(testFramework, runs.get(runNumber - 1), rootDisplayNames[index])
         }
 
         @Override
@@ -326,6 +344,7 @@ Unexpected paths: ${unexpectedPaths}""")
     }
 
     private static class HtmlTestPathRootExecutionResult implements TestPathRootExecutionResult {
+        private final TestFramework testFramework
         private final Element html
         private final String displayName
         private Multimap<String, TestInfo> testsExecuted = LinkedListMultimap.create()
@@ -333,45 +352,55 @@ Unexpected paths: ${unexpectedPaths}""")
         private Multimap<String, TestInfo> testsFailures = LinkedListMultimap.create()
         private Multimap<String, TestInfo> testsSkipped = LinkedListMultimap.create()
 
-        HtmlTestPathRootExecutionResult(Element html, String displayName) {
+        HtmlTestPathRootExecutionResult(TestFramework testFramework, Element html, String displayName) {
+            this.testFramework = testFramework
             this.html = html
             this.displayName = displayName
             extractCases()
         }
 
         private void extractCases() {
-            extractTestCaseTo("tr > td.success:eq(0)", testsSucceeded)
-            extractTestCaseTo("tr > td.failures:eq(0)", testsFailures)
-            extractTestCaseTo("tr > td.skipped:eq(0)", testsSkipped)
+            def summarySection = getTabs(html).get("summary")
+            assertThat("no summary section found", summarySection, notNullValue())
+            def allSection = getTabs(summarySection).get("All")
+            def allTestsContainer = allSection == null ? summarySection : allSection
+            extractTestCaseTo(allTestsContainer, "tr > td.success:eq(0)", testsSucceeded)
+            extractTestCaseTo(allTestsContainer, "tr > td.failures:eq(0)", testsFailures)
+            extractTestCaseTo(allTestsContainer, "tr > td.skipped:eq(0)", testsSkipped)
         }
 
-        private extractTestCaseTo(String cssSelector, Multimap<String, TestInfo> target) {
-            html.select(cssSelector).each {
+        private extractTestCaseTo(Element element, String cssSelector, Multimap<String, TestInfo> target) {
+            def hasNameColumn = hasNameColumn(element)
+            element.select(cssSelector).each {
                 def testDisplayName = it.text().trim()
-                def testName = hasNameColumn() ? it.nextElementSibling().text().trim() : testDisplayName
+                def testName = hasNameColumn ? it.nextElementSibling().text().trim() : testDisplayName
                 def testInfo = new TestInfo(testName, testDisplayName)
                 testsExecuted.put(testName, testInfo)
                 target.put(testName, testInfo)
             }
         }
 
-        private boolean hasNameColumn() {
-            return html.select('tr > th').size() == 7
+        private static boolean hasNameColumn(Element element) {
+            return element.select('tr > th').size() == 7
+        }
+
+        private ImmutableMultiset<String> frameworkTestNames(String... testNames) {
+            return Stream.of(testNames)
+                .map { testFramework.getTestCaseName(it) }
+                .collect(ImmutableMultiset.toImmutableMultiset())
         }
 
         @Override
         TestPathRootExecutionResult assertOnlyChildrenExecuted(String... testNames) {
             def executedAndNotSkipped = Multisets.difference(testsExecuted.keys(), testsSkipped.keys())
-            assertThat("in " + displayName, executedAndNotSkipped, equalTo(ImmutableMultiset.copyOf(testNames)))
+            assertThat("in " + displayName, executedAndNotSkipped, equalTo(frameworkTestNames(testNames)))
             return this
         }
 
         @Override
         TestPathRootExecutionResult assertChildrenExecuted(String... testNames) {
             def executedAndNotSkipped = Multisets.difference(testsExecuted.keys(), testsSkipped.keys())
-            testNames.each {
-                assertThat("in " + displayName, executedAndNotSkipped, hasItem(it))
-            }
+            assertThat("in " + displayName, executedAndNotSkipped, hasItems(frameworkTestNames(testNames).toArray(String[]::new)))
             return this
         }
 
@@ -389,7 +418,7 @@ Unexpected paths: ${unexpectedPaths}""")
 
         @Override
         TestPathRootExecutionResult assertChildrenSkipped(String... testNames) {
-            assertThat("in " + displayName, testsSkipped.keys(), equalTo(ImmutableMultiset.copyOf(testNames)))
+            assertThat("in " + displayName, testsSkipped.keys(), equalTo(frameworkTestNames(testNames)))
             return this
         }
 
@@ -400,7 +429,7 @@ Unexpected paths: ${unexpectedPaths}""")
 
         @Override
         TestPathRootExecutionResult assertChildrenFailed(String... testNames) {
-            assertThat("in " + displayName, testsFailures.keys(), equalTo(ImmutableMultiset.copyOf(testNames)))
+            assertThat("in " + displayName, testsFailures.keys(), equalTo(frameworkTestNames(testNames)))
             return this
         }
 
@@ -482,6 +511,31 @@ Unexpected paths: ${unexpectedPaths}""")
                 Maps.immutableEntry(it[0], it[1])
             }
             assertThat("in " + displayName, metadata, equalTo(expectedMetadata))
+            return this
+        }
+
+        @Override
+        TestPathRootExecutionResult assertFileAttachments(Map<String, ShowAs> expectedAttachments) {
+            def fileAttachments = html.select('.attachments tr').findAll { it.getElementsByTag('td').size() > 0 }
+            Map<String, ShowAs> actual = fileAttachments.collectEntries {
+                def columns = it.getElementsByTag("td")
+                assert columns.size() == 2 : "unexpected table"
+                def key = columns[0]
+                def content = columns[1]
+                def shownAs
+                if (content.getElementsByTag("img").size() > 0) {
+                    shownAs = ShowAs.IMAGE
+                } else if (content.getElementsByTag("video").size() > 0) {
+                    shownAs = ShowAs.VIDEO
+                } else if (content.getElementsByTag("a").size() > 0) {
+                    shownAs = ShowAs.LINK
+                } else {
+                    shownAs = null
+                }
+                [key.text(), shownAs]
+            }
+
+            assertThat("in " + displayName, actual, equalTo(expectedAttachments))
             return this
         }
     }
